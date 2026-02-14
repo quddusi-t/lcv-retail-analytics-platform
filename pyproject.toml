@@ -2,7 +2,7 @@
 name = "lcv-retail-analytics-platform"
 version = "0.1.0"
 description = "Retail analytics platform for LCV data processing, modeling, and insights"
-authors = [{name = "Kutsi Tusuz", email = "quddusi-t@github.com"}]
+authors = [{name = "Kutsi Tusuz", email = "ktusuz@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -29,6 +29,7 @@ dev = [
     "black>=23.0",
     "ruff>=0.1.0",
     "mypy>=1.0",
+    "pre-commit>=3.0",
 ]
 
 [build-system]
