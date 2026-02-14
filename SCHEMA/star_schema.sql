@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS fact_sales (
     is_return BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     -- Foreign Keys
     CONSTRAINT fk_fact_sales_store FOREIGN KEY (store_id) REFERENCES dim_store(store_id),
     CONSTRAINT fk_fact_sales_product FOREIGN KEY (product_id) REFERENCES dim_product(product_id),
@@ -136,7 +136,7 @@ ALTER TABLE fact_sales ADD CONSTRAINT check_net_amount_non_negative CHECK (net_a
 ALTER TABLE fact_sales ADD CONSTRAINT check_cost_amount_positive CHECK (cost_amount > 0);
 
 -- Constraint: margin = net - cost
-ALTER TABLE fact_sales ADD CONSTRAINT check_margin_calculation 
+ALTER TABLE fact_sales ADD CONSTRAINT check_margin_calculation
     CHECK (ABS((net_amount - cost_amount) - margin_amount) < 0.01);
 
 -- ============================================================
@@ -254,16 +254,16 @@ DECLARE
 BEGIN
     -- Recency: higher days = higher churn risk
     v_recency_score := LEAST(100, GREATEST(0, (p_recency_days - 30) * 2));
-    
+
     -- Frequency: lower purchases = higher churn risk
     v_frequency_score := LEAST(100, GREATEST(0, (10 - p_frequency_purchases) * 5));
-    
+
     -- Monetary: lower spend = higher churn risk
     v_monetary_score := LEAST(100, GREATEST(0, (1000 - p_monetary_value) / 10));
-    
+
     -- Weighted average
     v_total_score := (v_recency_score * 0.5) + (v_frequency_score * 0.3) + (v_monetary_score * 0.2);
-    
+
     RETURN ROUND(v_total_score)::INTEGER;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
@@ -278,7 +278,7 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 --     EXTRACT(MONTH FROM fs.sale_date) as month,
 --     SUM(fs.net_amount) as revenue,
 --     LAG(SUM(fs.net_amount)) OVER (PARTITION BY EXTRACT(MONTH FROM fs.sale_date) ORDER BY EXTRACT(YEAR FROM fs.sale_date)) as prev_year_revenue,
---     ROUND((SUM(fs.net_amount) - LAG(SUM(fs.net_amount)) OVER (PARTITION BY EXTRACT(MONTH FROM fs.sale_date) ORDER BY EXTRACT(YEAR FROM fs.sale_date))) / 
+--     ROUND((SUM(fs.net_amount) - LAG(SUM(fs.net_amount)) OVER (PARTITION BY EXTRACT(MONTH FROM fs.sale_date) ORDER BY EXTRACT(YEAR FROM fs.sale_date))) /
 --            LAG(SUM(fs.net_amount)) OVER (PARTITION BY EXTRACT(MONTH FROM fs.sale_date) ORDER BY EXTRACT(YEAR FROM fs.sale_date)) * 100, 2) as yoy_growth_pct
 -- FROM fact_sales fs
 -- WHERE fs.is_return = FALSE
@@ -299,4 +299,4 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 -- GROUP BY fs.customer_id
 -- ORDER BY lifetime_value DESC;
 
-print('✅ Star schema created successfully!');
+-- ✅ Star schema created successfully!
