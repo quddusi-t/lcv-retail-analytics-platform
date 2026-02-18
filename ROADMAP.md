@@ -1,7 +1,7 @@
 # LCV Retail Analytics Platform — 5-Week Development Roadmap
 
-**Timeline**: 5 weeks @ ~3 hours/day = ~75 hours total  
-**Start Date**: February 15, 2026  
+**Timeline**: 5 weeks @ ~3 hours/day = ~75 hours total
+**Start Date**: February 15, 2026
 **Target Completion**: March 21, 2026
 
 ---
@@ -21,27 +21,27 @@ Design a production-grade star schema and master advanced SQL queries for retail
 
 #### **Day 1–2: Schema Design & Documentation**
 - [x] Review SCHEMA/star_schema.sql structure
-- [x] Create ERD (Entity-Relationship Diagram) — tables, relationships, keys
-- [x] Document **Conceptual Model** (business entities: Customer, Store, Product, Sale)
-- [x] Document **Logical Model** (normalized structure + primary/foreign keys)
-- [x] Document **Physical Model** (indexes, partitioning strategy)
+- [ ] Create ERD (Entity-Relationship Diagram) — tables, relationships, keys
+- [ ] Document **Conceptual Model** (business entities: Customer, Store, Product, Sale)
+- [ ] Document **Logical Model** (normalized structure + primary/foreign keys)
+- [ ] Document **Physical Model** (indexes, partitioning strategy)
 - **Output**: `SCHEMA/data_dictionary.md`, `SCHEMA/erd_diagram.png`
 
 #### **Day 3–4: Generate Synthetic Data**
-- [x] Create `src/postgres/seed_synthetic_data.py`
-- [x] Generate 50 stores across 5 regions
-- [x] Generate 500 products (categories: textile, accessories, seasonal)
-- [x] Generate 10,000 unique customers
-- [x] Generate ~1M sales transactions (24 months)
-- [x] Add returns, discounts, loyalty points
+- [ ] Create `src/postgres/seed_synthetic_data.py`
+- [ ] Generate 50 stores across 5 regions
+- [ ] Generate 500 products (categories: textile, accessories, seasonal)
+- [ ] Generate 10,000 unique customers
+- [ ] Generate ~1M sales transactions (24 months)
+- [ ] Add returns, discounts, loyalty points
 - **Output**: PostgreSQL database populated with test data
 
 #### **Day 5+: Advanced SQL Queries**
-- [x] Write query: **YoY Sales Growth** (Year-over-Year comparison)
-- [x] Write query: **RFM Segmentation** (Recency, Frequency, Monetary scoring)
-- [x] Write query: **Inventory Turnover** by product category
-- [x] Write query: **Churn Detection** (inactive customers: >90 days no purchase)
-- [x] Optimize queries: Add indexes, explain plans, benchmark runtime
+- [ ] Write query: **YoY Sales Growth** (Year-over-Year comparison)
+- [ ] Write query: **RFM Segmentation** (Recency, Frequency, Monetary scoring)
+- [ ] Write query: **Inventory Turnover** by product category
+- [ ] Write query: **Churn Detection** (inactive customers: >90 days no purchase)
+- [ ] Optimize queries: Add indexes, explain plans, benchmark runtime
 - **Output**: `src/analytics/views.sql` (4–5 optimized queries)
 
 ### Deliverables
@@ -71,33 +71,33 @@ Build an Extract-Load pipeline and set up dbt for transformations.
 ### Tasks
 
 #### **Day 1–2: Extract & Load to Cloud Storage**
-- [x] Install Google Cloud SDK + authenticate
-- [x] Create `src/etl/postgres_to_gcs.py`
+- [ ] Install Google Cloud SDK + authenticate
+- [ ] Create `src/etl/postgres_to_gcs.py`
   - Query Postgres nightly (simulate batch job)
   - Export FactSales + Dimensions as Parquet files
   - Upload to Google Cloud Storage (GCS) bucket
-- [x] Test locally with mock GCS (or free BigQuery sandbox)
+- [ ] Test locally with mock GCS (or free BigQuery sandbox)
 - **Output**: Daily Parquet exports in GCS
 
 #### **Day 3–4: Load to BigQuery & Set Up dbt**
-- [x] Create BigQuery dataset (`retail_analytics_raw`)
-- [x] Load Parquet files into raw tables (`raw_sales`, `raw_products`, etc.)
-- [x] Initialize dbt project: `dbt init dbt_project`
-- [x] Create dbt staging models:
+- [ ] Create BigQuery dataset (`retail_analytics_raw`)
+- [ ] Load Parquet files into raw tables (`raw_sales`, `raw_products`, etc.)
+- [ ] Initialize dbt project: `dbt init dbt_project`
+- [ ] Create dbt staging models:
   - `stg_sales_clean` (deduplication, null handling, data type fixes)
   - `stg_products_clean` (standardize text, handle nulls)
   - `stg_stores_clean` (region/store level hierarchy)
-- [x] Run: `dbt run` → verify staging models created in BigQuery
+- [ ] Run: `dbt run` → verify staging models created in BigQuery
 - **Output**: BigQuery staging layer ready
 
 #### **Day 5+: Data Quality Checks**
-- [x] Create `tests/data_quality_checks.py`
+- [ ] Create `tests/data_quality_checks.py`
   - Check for duplicate transaction IDs
   - Verify no negative sales amounts
   - Validate all sales have valid store_id / product_id
   - Check for orphaned foreign keys
-- [x] Integrate dbt tests in `dbt_project/models/staging/`
-- [x] Run dbt tests: `dbt test` (all should pass)
+- [ ] Integrate dbt tests in `dbt_project/models/staging/`
+- [ ] Run dbt tests: `dbt test` (all should pass)
 - **Output**: Automated quality suite in place
 
 ### Deliverables
@@ -125,35 +125,35 @@ Build optimized analytics tables in BigQuery and demonstrate cost/performance im
 ### Tasks
 
 #### **Day 1–2: Create Analytics Mart**
-- [x] Create dbt mart models:
+- [ ] Create dbt mart models:
   - `fct_sales_v2` (fact table with all grain: sale_id)
   - `dim_product_final` (slowly changing dimension for prices)
   - `dim_store_final` (with region hierarchy)
   - `dim_date_final` (date table with fiscal periods)
-- [x] Run transformations: `dbt run`
-- [x] Verify mart tables in BigQuery
+- [ ] Run transformations: `dbt run`
+- [ ] Verify mart tables in BigQuery
 - **Output**: Production-ready analytics tables
 
 #### **Day 3: Partitioning & Clustering Strategy**
-- [x] Partition `fct_sales_v2` by `sale_date` (daily)
-- [x] Cluster by `store_id`, `product_id`
-- [x] Create materialized views for hot queries:
+- [ ] Partition `fct_sales_v2` by `sale_date` (daily)
+- [ ] Cluster by `store_id`, `product_id`
+- [ ] Create materialized views for hot queries:
   - `v_sales_by_region_daily` (YoY + current)
   - `v_churn_risk_customers` (inactive flags)
   - `v_rfm_segments` (customer scores)
-- [x] Document partitioning logic in `docs/PERFORMANCE_LOG.md`
+- [ ] Document partitioning logic in `docs/PERFORMANCE_LOG.md`
 - **Output**: Optimized warehouse schema
 
 #### **Day 4–5: Performance Benchmarking**
-- [x] Run unoptimized query (full scan): benchmark runtime + bytes scanned
-- [x] Run optimized query (partition + cluster): benchmark again
-- [x] Calculate cost savings:
+- [ ] Run unoptimized query (full scan): benchmark runtime + bytes scanned
+- [ ] Run optimized query (partition + cluster): benchmark again
+- [ ] Calculate cost savings:
   ```
   Cost Reduction = (Bytes Unoptimized - Bytes Optimized) / Bytes Unoptimized * 100%
   ```
-- [x] Document results in `docs/PERFORMANCE_LOG.md`
+- [ ] Document results in `docs/PERFORMANCE_LOG.md`
   - Example: "Query time: 8.2s → 0.3s (96% savings)"
-- [x] Create summary README for optimization wins
+- [ ] Create summary README for optimization wins
 - **Output**: Performance report with benchmarks
 
 ### Deliverables
@@ -181,33 +181,33 @@ Build interactive dashboards in Looker Studio (or alternative) with clear KPI de
 ### Tasks
 
 #### **Day 1–2: KPI Definition & Metrics**
-- [x] Document KPI definitions in `src/analytics/kpi_definitions.md`:
+- [ ] Document KPI definitions in `src/analytics/kpi_definitions.md`:
   - **Total Revenue**: Sum of all sales
   - **YoY Growth**: % change from prior year
   - **Store Performance**: Revenue + margin by store
   - **Customer LTV**: Lifetime value based on transaction history
   - **Inventory Turnover**: COGS / Average Inventory
   - **Sell-Through Rate**: Units sold / Units received
-- [x] Create SQL views for each KPI:
+- [ ] Create SQL views for each KPI:
   - `v_revenue_daily`, `v_yoy_growth`, `v_store_ranking`, `v_customer_ltv`, etc.
 - **Output**: `src/analytics/kpi_definitions.md` + KPI views
 
 #### **Day 3–4: Looker Studio Dashboard**
-- [x] Connect Looker Studio to BigQuery
-- [x] Create dashboard with 5–6 key reports:
+- [ ] Connect Looker Studio to BigQuery
+- [ ] Create dashboard with 5–6 key reports:
   1. **Sales Dashboard**: Total revenue, trend, regional breakdown
   2. **Customer Dashboard**: Acquisition, retention, LTV distribution
   3. **Inventory Dashboard**: Stock levels, turnover by category, reorder alerts
   4. **Store Performance**: Top/bottom stores, margin analysis
   5. **KPI Scorecard**: Key metrics at a glance
-- [x] Add filters: Date range, Store, Product Category, Region
-- [x] Export dashboard link + screenshot
+- [ ] Add filters: Date range, Store, Product Category, Region
+- [ ] Export dashboard link + screenshot
 - **Output**: Live Looker Studio dashboard
 
 #### **Day 5: Documentation & Design Narrative**
-- [x] Write dashboard README: explain each chart, business logic, how to use
-- [x] Add annotations to dashboard (hover tooltips with metric definitions)
-- [x] Screenshot dashboards for GitHub portfolio
+- [ ] Write dashboard README: explain each chart, business logic, how to use
+- [ ] Add annotations to dashboard (hover tooltips with metric definitions)
+- [ ] Screenshot dashboards for GitHub portfolio
 - **Output**: Dashboard guide + visuals
 
 ### Deliverables
@@ -236,50 +236,50 @@ Build churn prediction and demand forecasting models; wrap in FastAPI.
 ### Tasks
 
 #### **Day 1–2: Churn Prediction Model**
-- [x] Feature engineering: Extract from BigQuery or Postgres
+- [ ] Feature engineering: Extract from BigQuery or Postgres
   - **Recency**: Days since last purchase
   - **Frequency**: Purchases in last 90 days
   - **Monetary**: Total spend in last 90 days
   - **RFM Score**: Combined 1–10 rating
   - **Loyalty Status**: Program member? Points earned?
   - **Purchase Trend**: Slope of monthly purchases
-- [x] Data prep: Split train/test (80/20), handle class imbalance
-- [x] Model training: Logistic Regression or Random Forest
+- [ ] Data prep: Split train/test (80/20), handle class imbalance
+- [ ] Model training: Logistic Regression or Random Forest
   - Train on historical data (12 months)
   - Evaluate: Precision, Recall, F1-Score, AUC-ROC
-- [x] Save model: `src/ml/churn_model.pkl`
+- [ ] Save model: `src/ml/churn_model.pkl`
 - **Output**: Trained churn model + performance metrics
 
 #### **Day 3–4: Demand Forecasting + FastAPI**
-- [x] Feature engineering: Product + Store + Time features
-- [x] Time-series model (ARIMA, Prophet, or XGBoost)
+- [ ] Feature engineering: Product + Store + Time features
+- [ ] Time-series model (ARIMA, Prophet, or XGBoost)
   - Forecast next month's sales by product/store
   - Evaluate: RMSE, MAE on test set
-- [x] Create FastAPI app: `src/ml/api.py`
+- [ ] Create FastAPI app: `src/ml/api.py`
   ```python
   @app.get("/churn-risk")
   def predict_churn(customer_id: int):
       # Call churn model
       return {"customer_id": customer_id, "churn_probability": 0.72}
-  
+
   @app.get("/forecast")
   def forecast_demand(product_id: int, store_id: int, months_ahead: int = 1):
       # Call forecast model
       return {"forecast": [...]}
   ```
-- [x] Test endpoints locally
+- [ ] Test endpoints locally
 - **Output**: FastAPI server with /churn-risk + /forecast endpoints
 
 #### **Day 5: Polish, Test & Document**
-- [x] Write tests: `tests/test_ml_models.py`
+- [ ] Write tests: `tests/test_ml_models.py`
   - Test churn model predictions (sanity checks)
   - Test forecast model output ranges
   - Test API endpoints
-- [x] Create `src/ml/requirements.txt` (scikit-learn, xgboost, fastapi, etc.)
-- [x] Document model cards:
+- [ ] Create `src/ml/requirements.txt` (scikit-learn, xgboost, fastapi, etc.)
+- [ ] Document model cards:
   - Training data, features, performance metrics
   - How to retrain, deploy, monitor
-- [x] Create `docs/ML_MODELS.md` (model overview)
+- [ ] Create `docs/ML_MODELS.md` (model overview)
 - **Output**: Tested, documented ML pipeline
 
 ### Deliverables
@@ -321,13 +321,13 @@ lcv-retail-analytics-platform/
 ### Documentation Checklist
 - [x] README: Project overview, architecture, setup instructions
 - [x] ROADMAP: 5-week plan with deliverables ✅ This file
-- [x] GOVERNANCE: Data dictionary, lineage, SCD strategy
-- [x] Data Modeling: ERD, conceptual/logical/physical models
-- [x] SQL Optimization: Query benchmarks, partitioning logic, cost analysis
-- [x] dbt Models: Staging → marts with test coverage
-- [x] Dashboard Guide: KPI definitions, how to use
-- [x] ML Model Cards: Features, performance, retraining guide
-- [x] Architecture Diagram: Data flow from source → insights
+- [ ] GOVERNANCE: Data dictionary, lineage, SCD strategy
+- [ ] Data Modeling: ERD, conceptual/logical/physical models
+- [ ] SQL Optimization: Query benchmarks, partitioning logic, cost analysis
+- [ ] dbt Models: Staging → marts with test coverage
+- [ ] Dashboard Guide: KPI definitions, how to use
+- [ ] ML Model Cards: Features, performance, retraining guide
+- [ ] Architecture Diagram: Data flow from source → insights
 
 ### Portfolio Narrative (for interviews)
 When presenting this project to LCW:
@@ -392,31 +392,31 @@ git commit -m "test: ML model tests + API endpoints"
 
 ## ❓ Common Questions
 
-**Q: What if I get stuck?**  
+**Q: What if I get stuck?**
 A: Each week is designed to be self-contained. If you hit a blocker, jump to the next task—don't let one thing halt progress.
 
-**Q: Do I need to use all GCP services?**  
+**Q: Do I need to use all GCP services?**
 A: No. You can use free tiers of BigQuery, Cloud Storage, and even mock them locally. The concepts matter more than the exact tools.
 
-**Q: How do I handle data privacy?**  
+**Q: How do I handle data privacy?**
 A: This is synthetic data only. No real LCV customer data. Perfect for a public portfolio on GitHub.
 
-**Q: Can I modify this roadmap?**  
+**Q: Can I modify this roadmap?**
 A: Absolutely. Adjust tasks to your pace. The goal is a complete end-to-end project, not following a script.
 
 ---
 
 ## 🚀 Ready to Start?
 
-You are here: **Today (Feb 14)** — Planning done.  
-You start: **Tomorrow (Feb 15)** — Week 1, Day 1.
+You are here: **Today (Feb 19)** — Roadmap reset & ready to execute.
+Start: **Now** — Week 1, Day 1 (generate synthetic data + SQL queries).
 
-The first thing to do is set up PostgreSQL locally and run the `seed_synthetic_data.py` script.  
+The first thing to do is set up PostgreSQL locally and run the `seed_synthetic_data.py` script.
 By end of Week 1, you'll have a queryable retail database with 1M+ transactions.
 
 **Let's go. ¡Vamos! 🔥**
 
 ---
 
-**Last Updated**: February 14, 2026  
-**Status**: Ready for Week 1 ✅
+**Last Updated**: February 19, 2026
+**Status**: Starting Week 1 Implementation ⏳
