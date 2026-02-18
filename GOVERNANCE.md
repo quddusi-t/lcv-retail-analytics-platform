@@ -149,7 +149,7 @@ Analytics-optimized fact table.
 | `cost_amount` | DECIMAL | COGS |
 | `margin_amount` | DECIMAL | Profit |
 
-**Partitioning**: `sale_date` (daily)  
+**Partitioning**: `sale_date` (daily)
 **Clustering**: `store_id`, `product_id`, `customer_id`
 
 ---
@@ -167,7 +167,7 @@ Product dimension with SCD Type 2 support.
 | `scd_end_date` | DATE | SCD Type 2: when version ended |
 | `is_current` | BOOLEAN | Flag for current version |
 
-**Why SCD Type 2?**  
+**Why SCD Type 2?**
 When a product's price changes, we preserve the historical price to accurately report margins on past transactions.
 
 ---
@@ -249,7 +249,7 @@ SELECT sale_id, COUNT(*) FROM fact_sales GROUP BY sale_id HAVING COUNT(*) > 1;  
 **Rule 7: Margin Logic**
 ```sql
 -- Margin must equal net_amount - cost_amount (tolerance ±0.01)
-SELECT COUNT(*) FROM fact_sales 
+SELECT COUNT(*) FROM fact_sales
 WHERE ABS((net_amount - cost_amount) - margin_amount) > 0.01;  -- Should = 0
 ```
 
@@ -419,7 +419,7 @@ SELECT
     fs.unit_price,  -- Actual transaction price
     fs.margin_amount
 FROM fct_sales_v2 fs
-JOIN dim_product_final dp ON 
+JOIN dim_product_final dp ON
     fs.product_id = dp.product_id
     AND fs.sale_date BETWEEN dp.scd_start_date AND COALESCE(dp.scd_end_date, CURRENT_DATE)
 WHERE fs.sale_date >= '2025-01-01';
@@ -458,15 +458,15 @@ WHERE fs.sale_date >= '2025-01-01';
 
 ## 📝 Governance Checklist
 
-✅ **Data Dictionary**: Complete with business definitions  
-✅ **Quality Rules**: SQL assertions for validating data  
-✅ **Lineage Tracking**: Column-to-column flow documented  
-✅ **SCD Strategy**: Product prices tracked historically  
-✅ **Access Control**: Roles defined for different personas  
-✅ **Freshness SLA**: Load schedules documented  
-✅ **Backup & Recovery**: Disaster recovery approach noted  
+✅ **Data Dictionary**: Complete with business definitions
+✅ **Quality Rules**: SQL assertions for validating data
+✅ **Lineage Tracking**: Column-to-column flow documented
+✅ **SCD Strategy**: Product prices tracked historically
+✅ **Access Control**: Roles defined for different personas
+✅ **Freshness SLA**: Load schedules documented
+✅ **Backup & Recovery**: Disaster recovery approach noted
 
 ---
 
-**Last Updated**: February 14, 2026  
+**Last Updated**: February 14, 2026
 **Next Review**: After Week 1 (implementation of staging models)

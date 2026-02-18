@@ -10,7 +10,7 @@ A comprehensive **end-to-end data warehouse and analytics platform** designed to
 
 **Context:** LC Waikiki operates 1,300+ stores across 60+ countries. This project simulates their data flow and builds the kind of analytics infrastructure they rely on for decision-making.
 
-**Scope:** 
+**Scope:**
 - **Source System**: Mock Point-of-Sale (POS) data in PostgreSQL
 - **Data Warehouse**: Google BigQuery with star schema
 - **Transformations**: dbt for ETL/ELT pipelines
