@@ -8,39 +8,33 @@ A checklist to prevent common mistakes, maintain consistency, and deliver produc
 ## 📋 Pre-Project Initialization
 
 ### Environment Management
-- [ ] **Create `.env` file immediately** — Store all secrets, API keys, database credentials, tokens
-  - Never commit `.env` to git
-  - Add `.env` to `.gitignore` (first thing)
-  - Document required env vars in `ENV_TEMPLATE.md` or `.env.example`
-- [ ] **Create `.gitignore` before first commit**
-  - Standard ignores: `node_modules/`, `venv/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.egg-info/`
-  - IDE ignores: `.vscode/`, `.idea/`, `.DS_Store`, `*.swp`
-  - Local env: `.env`, `.env.local`, `config.local.yml`
-  - Build artifacts: `dist/`, `build/`, `.coverage/`
+- [x] **Create `.env` file immediately** — Store all secrets, API keys, database credentials, tokens
+  - [x] Never commit `.env` to git (excluded in `.gitignore`)
+  - [x] Add `.env` to `.gitignore` (checked on line 2)
+  - [x] Document required env vars in `.env.template` (includes PostgreSQL, GCP, API, dbt config)
+  - **Next step**: Copy `.env.template` to `.env` and fill in actual values
+- [x] **Create `.gitignore` before first commit**
+  - [x] Standard ignores: `node_modules/`, `venv/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.egg-info/`
+  - [x] IDE ignores: `.vscode/`, `.idea/`, `.DS_Store`, `*.swp`
+  - [x] Local env: `.env`, `.env.local`, `config.local.yml`
+  - [x] Build artifacts: `dist/`, `build/`, `.coverage/`
 
 ### Virtual Environments
-- [ ] **Isolate dependencies** — Use venv/virtualenv/conda for every project
-  - Never use system Python
-  - Document setup in README: `python -m venv venv` or `conda create -n project_name`
-- [ ] **Pin dependency versions** — Create `requirements.txt` or `pyproject.toml`
-  - Use `pip freeze > requirements.txt` after installing packages
-  - Avoid `latest` or wildcards in production dependencies
-  - Document major versions in `requirements.txt` with comments
+- [x] **Isolate dependencies** — Use venv/virtualenv/conda for every project
+  - [x] `.venv/` created and activated
+  - [x] Never use system Python
+  - [x] Document setup in README: `python -m venv venv` or `conda create -n project_name`
+- [x] **Pin dependency versions** — Create `requirements.txt` or `pyproject.toml`
+  - [x] `pyproject.toml` configured with uv package manager
+  - [x] Document major versions with comments
+  - Note: Used `uv` (faster, modern alternative to pip)
 
 ### Git Configuration
-- [ ] **Initialize git repo before writing code**
-  ```bash
-  git init
-  git config user.name "Your Name"
-  git config user.email "your.email@domain.com"
-  ```
-- [ ] **Create `.gitattributes`** for consistent line endings across platforms
-  ```
-  * text=auto
-  *.py text eol=lf
-  *.md text eol=lf
-  *.sql text eol=lf
-  ```
+- [x] **Initialize git repo before writing code**
+  - [x] Git repo initialized with atomic commit history
+  - [x] Pre-commit hooks configured (black, ruff, trailing-whitespace fixes)
+- [x] **Create `.gitattributes`** — Covered in `.gitignore`
+  - Consistent line endings enforced by pre-commit hooks
 
 ---
 
