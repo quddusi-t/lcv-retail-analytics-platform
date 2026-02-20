@@ -37,20 +37,30 @@ from dotenv import load_dotenv
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),  # console output
+        logging.FileHandler("seed_data.log"),  # file output
+    ],
 )
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
+# Extract configuration for safe logging
+POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
+POSTGRES_USER = os.getenv("POSTGRES_USER")
+POSTGRES_DB = os.getenv("POSTGRES_DB")
+
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv("POSTGRES_HOST"),
-    "port": int(os.getenv("POSTGRES_PORT", 5432)),
-    "user": os.getenv("POSTGRES_USER"),
+    "host": POSTGRES_HOST,
+    "port": POSTGRES_PORT,
+    "user": POSTGRES_USER,
     "password": os.getenv("POSTGRES_PASSWORD"),
-    "database": os.getenv("POSTGRES_DB"),
+    "database": POSTGRES_DB,
 }
 
 # Domain Constants
@@ -439,12 +449,25 @@ class SyntheticDataGenerator:
 def main() -> None:
     """Entry point for synthetic data generation."""
     logger.info("Starting synthetic data generation for LCV Retail Analytics Platform")
+
+    # Log database configuration (safe - no password)
     logger.info(
-        f"Generating: {NUM_STORES} stores, {NUM_PRODUCTS} products, "
-        f"{NUM_CUSTOMERS} customers, ~{NUM_SALES:,} sales over {DATE_RANGE_DAYS} days"
+        "Database config: host=%s port=%s db=%s user=%s",
+        POSTGRES_HOST,
+        POSTGRES_PORT,
+        POSTGRES_DB,
+        POSTGRES_USER,
     )
+
+    # Log data generation configuration
     logger.info(
-        f"Database: {DB_CONFIG['database']} @ {DB_CONFIG['host']}:{DB_CONFIG['port']}"
+        "Data generation config: stores=%d products=%d customers=%d sales=%d days=%d seed=%d",
+        NUM_STORES,
+        NUM_PRODUCTS,
+        NUM_CUSTOMERS,
+        NUM_SALES,
+        DATE_RANGE_DAYS,
+        RANDOM_SEED,
     )
 
     generator = SyntheticDataGenerator(DB_CONFIG)
