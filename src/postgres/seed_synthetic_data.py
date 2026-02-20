@@ -2,21 +2,28 @@
 Synthetic Data Generator for LCV Retail Analytics Platform
 
 Generates realistic retail data for testing and development:
-- 50 stores across 5 regions
-- 500 products (categories: textile, accessories, seasonal)
-- 10,000 unique customers
-- ~1M sales transactions (24 months)
+- Configurable number of stores, products, customers, transactions
+- 5 regions with store distribution
+- 3 product categories (textile, accessories, seasonal)
 - Returns, discounts, loyalty points
 
 Usage:
     python src/postgres/seed_synthetic_data.py
 
-Environment Variables:
-    POSTGRES_HOST: PostgreSQL host (default: localhost)
+Required Environment Variables:
+    POSTGRES_HOST: PostgreSQL host
     POSTGRES_PORT: PostgreSQL port (default: 5432)
-    POSTGRES_USER: PostgreSQL user
+    POSTGRES_USER: PostgreSQL username
     POSTGRES_PASSWORD: PostgreSQL password
     POSTGRES_DB: PostgreSQL database name
+
+Optional Configuration (Defaults Provided):
+    NUM_STORES: Number of stores to generate (default: 50)
+    NUM_PRODUCTS: Number of products to generate (default: 500)
+    NUM_CUSTOMERS: Number of customers to generate (default: 10000)
+    NUM_SALES: Number of sales transactions to generate (default: 1000000)
+    DATE_RANGE_DAYS: Historical data range in days (default: 730)
+    RANDOM_SEED: Random seed for reproducibility (default: 42)
 """
 
 import logging
@@ -39,14 +46,14 @@ load_dotenv()
 
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv("POSTGRES_HOST", "localhost"),
+    "host": os.getenv("POSTGRES_HOST"),
     "port": int(os.getenv("POSTGRES_PORT", 5432)),
-    "user": os.getenv("POSTGRES_USER", "retail_user"),
-    "password": os.getenv("POSTGRES_PASSWORD", "password"),
-    "database": os.getenv("POSTGRES_DB", "lcv_retail_db"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
+    "database": os.getenv("POSTGRES_DB"),
 }
 
-# Constants
+# Domain Constants
 REGIONS = ["North", "South", "East", "West", "Central"]
 PRODUCT_CATEGORIES = {
     "Textile": ["T-Shirt", "Dress", "Pants", "Jacket", "Sweater"],
@@ -54,11 +61,13 @@ PRODUCT_CATEGORIES = {
     "Seasonal": ["Swimwear", "Thermal", "Snow Boots", "Sunglasses", "Winter Coat"],
 }
 
-NUM_STORES = 50
-NUM_PRODUCTS = 500
-NUM_CUSTOMERS = 10000
-NUM_SALES = 1_000_000
-DATE_RANGE_DAYS = 730  # 2 years
+# Data Generation Configuration (from environment)
+NUM_STORES = int(os.getenv("NUM_STORES", 50))
+NUM_PRODUCTS = int(os.getenv("NUM_PRODUCTS", 500))
+NUM_CUSTOMERS = int(os.getenv("NUM_CUSTOMERS", 10000))
+NUM_SALES = int(os.getenv("NUM_SALES", 1000000))
+DATE_RANGE_DAYS = int(os.getenv("DATE_RANGE_DAYS", 730))  # 2 years
+RANDOM_SEED = int(os.getenv("RANDOM_SEED", 42))
 
 
 class SyntheticDataGenerator:
@@ -110,6 +119,7 @@ class SyntheticDataGenerator:
     def generate_dim_date(self) -> None:
         """Generate date dimension table."""
         logger.info("Generating date dimension...")
+        np.random.seed(RANDOM_SEED)
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
         dates = []
 
@@ -150,7 +160,7 @@ class SyntheticDataGenerator:
     def generate_dim_store(self) -> None:
         """Generate store dimension table."""
         logger.info("Generating store dimension...")
-        np.random.seed(42)
+        np.random.seed(RANDOM_SEED)
         stores = []
 
         for store_id in range(1, NUM_STORES + 1):
@@ -195,7 +205,7 @@ class SyntheticDataGenerator:
     def generate_dim_product(self) -> None:
         """Generate product dimension table."""
         logger.info("Generating product dimension...")
-        np.random.seed(42)
+        np.random.seed(RANDOM_SEED)
         products = []
         product_id = 1
 
@@ -250,7 +260,7 @@ class SyntheticDataGenerator:
     def generate_dim_customer(self) -> None:
         """Generate customer dimension table."""
         logger.info("Generating customer dimension...")
-        np.random.seed(42)
+        np.random.seed(RANDOM_SEED)
         customers = []
 
         for customer_id in range(1, NUM_CUSTOMERS + 1):
@@ -295,7 +305,7 @@ class SyntheticDataGenerator:
     def generate_fact_sales(self) -> None:
         """Generate fact sales table (~1M transactions)."""
         logger.info("Generating fact sales table (~1M records)...")
-        np.random.seed(42)
+        np.random.seed(RANDOM_SEED)
 
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
         sales_records = []
@@ -429,7 +439,13 @@ class SyntheticDataGenerator:
 def main() -> None:
     """Entry point for synthetic data generation."""
     logger.info("Starting synthetic data generation for LCV Retail Analytics Platform")
-    logger.info(f"Configuration: {DB_CONFIG}")
+    logger.info(
+        f"Generating: {NUM_STORES} stores, {NUM_PRODUCTS} products, "
+        f"{NUM_CUSTOMERS} customers, ~{NUM_SALES:,} sales over {DATE_RANGE_DAYS} days"
+    )
+    logger.info(
+        f"Database: {DB_CONFIG['database']} @ {DB_CONFIG['host']}:{DB_CONFIG['port']}"
+    )
 
     generator = SyntheticDataGenerator(DB_CONFIG)
     generator.generate_all()
