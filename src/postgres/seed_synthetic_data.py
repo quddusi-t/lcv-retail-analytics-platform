@@ -29,18 +29,21 @@ Optional Configuration (Defaults Provided):
 import logging
 import os
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 
 import numpy as np
 import psycopg2
 from dotenv import load_dotenv
 
-# Configure logging
+# Configure logging with rotation
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(),  # console output
-        logging.FileHandler("seed_data.log"),  # file output
+        RotatingFileHandler(
+            "seed_data.log", maxBytes=5_000_000, backupCount=3
+        ),  # file output with rotation
     ],
 )
 logger = logging.getLogger(__name__)
@@ -92,11 +95,18 @@ class SyntheticDataGenerator:
     def connect(self) -> None:
         """Connect to PostgreSQL database."""
         try:
+            logger.info(
+                "Connecting to PostgreSQL at %s:%s (database: %s, user: %s)",
+                self.db_config["host"],
+                self.db_config["port"],
+                self.db_config["database"],
+                self.db_config["user"],
+            )
             self.conn = psycopg2.connect(**self.db_config)
             self.cursor = self.conn.cursor()
-            logger.info("Connected to PostgreSQL successfully")
+            logger.info("✅ PostgreSQL connection established")
         except psycopg2.OperationalError as e:
-            logger.error(f"Failed to connect to PostgreSQL: {e}")
+            logger.error(f"❌ Failed to connect to PostgreSQL: {e}")
             raise
 
     def disconnect(self) -> None:
@@ -110,6 +120,7 @@ class SyntheticDataGenerator:
     def clear_tables(self) -> None:
         """Clear existing data from tables (for idempotency)."""
         try:
+            logger.info("Clearing existing data from all tables...")
             tables = [
                 "fact_sales",
                 "dim_customer",
@@ -120,15 +131,15 @@ class SyntheticDataGenerator:
             for table in tables:
                 self.cursor.execute(f"TRUNCATE TABLE {table} CASCADE;")
             self.conn.commit()
-            logger.info("Cleared existing data from all tables")
+            logger.info("✅ Cleared existing data from all tables")
         except psycopg2.Error as e:
-            logger.error(f"Error clearing tables: {e}")
+            logger.error(f"❌ Error clearing tables: {e}")
             self.conn.rollback()
             raise
 
     def generate_dim_date(self) -> None:
         """Generate date dimension table."""
-        logger.info("Generating date dimension...")
+        logger.info("Generating %d date dimension records...", DATE_RANGE_DAYS + 1)
         np.random.seed(RANDOM_SEED)
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
         dates = []
@@ -156,6 +167,7 @@ class SyntheticDataGenerator:
                 )
             )
 
+        logger.info("Inserting %d records into dim_date...", len(dates))
         insert_query = """
             INSERT INTO dim_date (
                 date_id, date_value, day_of_week, day_name, week_of_year,
@@ -165,11 +177,11 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, dates)
         self.conn.commit()
-        logger.info(f"Generated {len(dates)} date records")
+        logger.info("✅ Inserted %d date records", len(dates))
 
     def generate_dim_store(self) -> None:
         """Generate store dimension table."""
-        logger.info("Generating store dimension...")
+        logger.info("Generating %d store dimension records...", NUM_STORES)
         np.random.seed(RANDOM_SEED)
         stores = []
 
@@ -201,6 +213,7 @@ class SyntheticDataGenerator:
                 )
             )
 
+        logger.info("Inserting %d records into dim_store...", len(stores))
         insert_query = """
             INSERT INTO dim_store (
                 store_id, store_name, store_code, region, country, city,
@@ -210,11 +223,11 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, stores)
         self.conn.commit()
-        logger.info(f"Generated {len(stores)} store records")
+        logger.info("✅ Inserted %d store records", len(stores))
 
     def generate_dim_product(self) -> None:
         """Generate product dimension table."""
-        logger.info("Generating product dimension...")
+        logger.info("Generating %d product dimension records...", NUM_PRODUCTS)
         np.random.seed(RANDOM_SEED)
         products = []
         product_id = 1
@@ -256,6 +269,7 @@ class SyntheticDataGenerator:
                 )
                 product_id += 1
 
+        logger.info("Inserting %d records into dim_product...", len(products))
         insert_query = """
             INSERT INTO dim_product (
                 product_id, product_name, product_code, category, subcategory,
@@ -265,11 +279,11 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, products)
         self.conn.commit()
-        logger.info(f"Generated {len(products)} product records")
+        logger.info("✅ Inserted %d product records", len(products))
 
     def generate_dim_customer(self) -> None:
         """Generate customer dimension table."""
-        logger.info("Generating customer dimension...")
+        logger.info("Generating %d customer dimension records...", NUM_CUSTOMERS)
         np.random.seed(RANDOM_SEED)
         customers = []
 
@@ -301,6 +315,7 @@ class SyntheticDataGenerator:
                 )
             )
 
+        logger.info("Inserting %d records into dim_customer...", len(customers))
         insert_query = """
             INSERT INTO dim_customer (
                 customer_id, loyalty_member, join_date, first_purchase_date,
@@ -310,11 +325,11 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, customers)
         self.conn.commit()
-        logger.info(f"Generated {len(customers)} customer records")
+        logger.info("✅ Inserted %d customer records", len(customers))
 
     def generate_fact_sales(self) -> None:
         """Generate fact sales table (~1M transactions)."""
-        logger.info("Generating fact sales table (~1M records)...")
+        logger.info("Generating %d fact sales records (in batches)...", NUM_SALES)
         np.random.seed(RANDOM_SEED)
 
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
@@ -324,7 +339,8 @@ class SyntheticDataGenerator:
 
         # Generate sales in batches to reduce memory usage
         batch_size = 10000
-        for batch_num in range(0, NUM_SALES // batch_size):
+        total_batches = NUM_SALES // batch_size
+        for batch_num in range(0, total_batches):
             for _ in range(batch_size):
                 sale_date = base_date + timedelta(
                     days=np.random.randint(0, DATE_RANGE_DAYS + 1)
@@ -401,13 +417,18 @@ class SyntheticDataGenerator:
             self.cursor.executemany(insert_query, sales_records)
             self.conn.commit()
             logger.info(
-                f"Inserted sales batch {batch_num + 1}/{NUM_SALES // batch_size}"
+                "Inserted sales batch %d/%d (%d records)",
+                batch_num + 1,
+                total_batches,
+                len(sales_records),
             )
             sales_records = []
 
+        logger.info("✅ Inserted %d total fact sales records", sale_id - 1)
+
     def create_indexes(self) -> None:
         """Create indexes for query optimization."""
-        logger.info("Creating indexes...")
+        logger.info("Creating database indexes for query optimization...")
         indexes = [
             "CREATE INDEX idx_fact_sales_date_2 ON fact_sales(sale_date);",
             "CREATE INDEX idx_fact_sales_store_2 ON fact_sales(store_id);",
@@ -416,31 +437,56 @@ class SyntheticDataGenerator:
             "CREATE INDEX idx_fact_sales_store_product_date_2 ON fact_sales(store_id, product_id, sale_date);",
         ]
 
+        created_count = 0
         for index_query in indexes:
             try:
+                logger.debug("Creating index: %s", index_query[:50] + "...")
                 self.cursor.execute(index_query)
                 self.conn.commit()
+                created_count += 1
             except psycopg2.Error as e:
                 if "already exists" not in str(e):
                     logger.warning(f"Index creation warning: {e}")
                 self.conn.rollback()
 
-        logger.info("Indexes created successfully")
+        logger.info("✅ Created %d indexes", created_count)
 
     def generate_all(self) -> None:
         """Run the complete data generation pipeline."""
         try:
+            logger.info("=" * 60)
+            logger.info("STARTING SYNTHETIC DATA GENERATION PIPELINE")
+            logger.info("=" * 60)
+
             self.connect()
+            logger.info("Step 1/7: Clearing existing data...")
             self.clear_tables()
+
+            logger.info("Step 2/7: Generating date dimension...")
             self.generate_dim_date()
+
+            logger.info("Step 3/7: Generating store dimension...")
             self.generate_dim_store()
+
+            logger.info("Step 4/7: Generating product dimension...")
             self.generate_dim_product()
+
+            logger.info("Step 5/7: Generating customer dimension...")
             self.generate_dim_customer()
+
+            logger.info("Step 6/7: Generating fact sales...")
             self.generate_fact_sales()
+
+            logger.info("Step 7/7: Creating indexes...")
             self.create_indexes()
-            logger.info("✅ Synthetic data generation completed successfully!")
+
+            logger.info("=" * 60)
+            logger.info("✅ SYNTHETIC DATA GENERATION COMPLETED SUCCESSFULLY!")
+            logger.info("=" * 60)
         except Exception as e:
-            logger.error(f"Error during data generation: {e}")
+            logger.error("=" * 60)
+            logger.error(f"❌ ERROR DURING DATA GENERATION: {e}")
+            logger.error("=" * 60)
             raise
         finally:
             self.disconnect()
@@ -448,7 +494,9 @@ class SyntheticDataGenerator:
 
 def main() -> None:
     """Entry point for synthetic data generation."""
-    logger.info("Starting synthetic data generation for LCV Retail Analytics Platform")
+    logger.info(" " * 60)
+    logger.info("LCV RETAIL ANALYTICS PLATFORM - SYNTHETIC DATA GENERATOR")
+    logger.info(" " * 60)
 
     # Log database configuration (safe - no password)
     logger.info(
