@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS dim_store (
     region VARCHAR(100) NOT NULL,
     country VARCHAR(100) NOT NULL,
     city VARCHAR(100) NOT NULL,
-    latitude DECIMAL(10, 8),
-    longitude DECIMAL(10, 8),
+    latitude DECIMAL(11, 8),  -- Supports -90 to 90 with 8 decimal places (meters precision)
+    longitude DECIMAL(11, 8),  -- Supports -180 to 180 with 8 decimal places
     store_type VARCHAR(50) NOT NULL,
     opening_date DATE NOT NULL,
     closing_date DATE,

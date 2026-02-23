@@ -295,7 +295,9 @@ class SyntheticDataGenerator:
         for customer_id in range(1, NUM_CUSTOMERS + 1):
             # 70% loyalty members, 30% one-time guests: reflects realistic retail mix
             # Loyalty members enable RFM analysis, repeat purchase tracking, churn detection
-            loyalty_member = np.random.choice([True, False], p=[0.7, 0.3])
+            loyalty_member = bool(
+                np.random.choice([True, False], p=[0.7, 0.3])
+            )  # Convert numpy.bool_ to Python bool
             country = "USA"
 
             # Generate dates for loyalty members
@@ -386,7 +388,9 @@ class SyntheticDataGenerator:
                 margin_amount = net_amount - cost_amount
 
                 # Returns (5% realistic e-commerce return rate): negative transactions reduce recognition
-                is_return = np.random.choice([True, False], p=[0.05, 0.95])
+                is_return = bool(
+                    np.random.choice([True, False], p=[0.05, 0.95])
+                )  # Convert numpy.bool_ to Python bool
                 if is_return:
                     # Returns are recorded as negative to offset original sale in fact table
                     net_amount = -abs(net_amount)
