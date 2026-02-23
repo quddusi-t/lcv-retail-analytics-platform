@@ -141,11 +141,13 @@ class SyntheticDataGenerator:
         """Generate date dimension table."""
         logger.info("Generating %d date dimension records...", DATE_RANGE_DAYS + 1)
         np.random.seed(RANDOM_SEED)
+        # Date dimension covers 2-year lookback: enables trend analysis and YoY comparisons
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
         dates = []
 
         for i in range(DATE_RANGE_DAYS + 1):
             current_date = base_date + timedelta(days=i)
+            # Format date_id as YYYYMMDD (e.g., 20260224) for easy sorting and period grouping
             date_id = int(current_date.strftime("%Y%m%d"))
 
             dates.append(
@@ -186,6 +188,7 @@ class SyntheticDataGenerator:
         stores = []
 
         for store_id in range(1, NUM_STORES + 1):
+            # Distribute stores evenly across regions using modulo: enables regional sales analysis
             region = REGIONS[(store_id - 1) % len(REGIONS)]
             store_name = f"Store {store_id} - {region}"
             city = f"City_{region}_{store_id % 10}"
@@ -240,6 +243,8 @@ class SyntheticDataGenerator:
                     f"{subcategory} - {chr(65 + (i % 26))}{chr(65 + (i // 26) % 26)}"
                 )
                 unit_cost = np.random.uniform(5, 50)
+                # Retail markup 1.5x-3.5x cost: simulates retail pricing strategy
+                # Lower margins on commodity items, higher on branded products
                 list_price = unit_cost * np.random.uniform(1.5, 3.5)
 
                 products.append(
@@ -288,6 +293,8 @@ class SyntheticDataGenerator:
         customers = []
 
         for customer_id in range(1, NUM_CUSTOMERS + 1):
+            # 70% loyalty members, 30% one-time guests: reflects realistic retail mix
+            # Loyalty members enable RFM analysis, repeat purchase tracking, churn detection
             loyalty_member = np.random.choice([True, False], p=[0.7, 0.3])
             country = "USA"
 
@@ -337,7 +344,7 @@ class SyntheticDataGenerator:
         sale_id = 1
         payment_methods = ["Cash", "Credit Card", "Debit Card", "Mobile Pay"]
 
-        # Generate sales in batches to reduce memory usage
+        # Generate sales in batches to reduce memory usage: prevents out-of-memory errors on large datasets
         batch_size = 10000
         total_batches = NUM_SALES // batch_size
         for batch_num in range(0, total_batches):
@@ -348,7 +355,8 @@ class SyntheticDataGenerator:
                 store_id = np.random.randint(1, NUM_STORES + 1)
                 product_id = np.random.randint(1, NUM_PRODUCTS + 1)
 
-                # 80% of sales are from loyalty members
+                # 80% of sales tracked to loyalty members: enables customer segmentation analysis
+                # 20% anonymous cash/guest transactions: realistic retail scenario
                 if np.random.random() < 0.8:
                     customer_id = np.random.randint(1, NUM_CUSTOMERS + 1)
                 else:
@@ -357,12 +365,14 @@ class SyntheticDataGenerator:
                 quantity = np.random.randint(1, 10)
                 unit_price = np.random.uniform(10, 200)
 
-                # Calculate cost (assume 40-60% margin on cost)
+                # Calculate cost: assumes 40-60% margin on cost
+                # Markup ranges from 1.5x to 2.5x to cover wholesale cost + operating expenses + profit
                 cost_markup = np.random.uniform(1.5, 2.5)
                 unit_cost = unit_price / cost_markup
                 cost_amount = unit_cost * quantity
 
-                # Discounts
+                # Discount distribution: mimics promotional strategy
+                # 50% no discount, 20% small (5%), 15% moderate (10%), 10% high (15%), 5% deep (20%)
                 discount_pct = np.random.choice(
                     [0, 5, 10, 15, 20], p=[0.5, 0.2, 0.15, 0.1, 0.05]
                 )
@@ -372,12 +382,13 @@ class SyntheticDataGenerator:
                 )
                 net_amount = total_amount - discount_amount
 
-                # Margin calculation
+                # Margin calculation: profit = revenue - cost
                 margin_amount = net_amount - cost_amount
 
-                # Returns (5% chance)
+                # Returns (5% realistic e-commerce return rate): negative transactions reduce recognition
                 is_return = np.random.choice([True, False], p=[0.05, 0.95])
                 if is_return:
+                    # Returns are recorded as negative to offset original sale in fact table
                     net_amount = -abs(net_amount)
                     cost_amount = -abs(cost_amount)
                     margin_amount = net_amount - cost_amount
