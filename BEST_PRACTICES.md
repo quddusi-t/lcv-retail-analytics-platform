@@ -346,6 +346,11 @@ python -m ruff check src/
   logger.error(f"Failed to load data: {error}")
   ```
 
+- [ ] **Avoid emojis in log messages and scripts**
+  - ❌ BAD: `logger.info("✅ Data loaded successfully")`
+  - ✅ GOOD: `logger.info("[OK] Data loaded successfully")`
+  - **Reason**: Emojis cause encoding issues on Windows terminals (charmap codec errors), CI/CD systems, and log aggregation pipelines that expect ASCII-only output. Use `[OK]`, `[ERROR]`, `[WARNING]` instead.
+
 - [ ] **Monitor in production**
   - Track errors, latency, resource usage
   - Set up alerts for failures

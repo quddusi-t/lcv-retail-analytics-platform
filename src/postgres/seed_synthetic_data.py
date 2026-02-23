@@ -104,9 +104,9 @@ class SyntheticDataGenerator:
             )
             self.conn = psycopg2.connect(**self.db_config)
             self.cursor = self.conn.cursor()
-            logger.info("✅ PostgreSQL connection established")
+            logger.info("[OK] PostgreSQL connection established")
         except psycopg2.OperationalError as e:
-            logger.error(f"❌ Failed to connect to PostgreSQL: {e}")
+            logger.error(f"[ERROR] Failed to connect to PostgreSQL: {e}")
             raise
 
     def disconnect(self) -> None:
@@ -131,9 +131,9 @@ class SyntheticDataGenerator:
             for table in tables:
                 self.cursor.execute(f"TRUNCATE TABLE {table} CASCADE;")
             self.conn.commit()
-            logger.info("✅ Cleared existing data from all tables")
+            logger.info("[OK] Cleared existing data from all tables")
         except psycopg2.Error as e:
-            logger.error(f"❌ Error clearing tables: {e}")
+            logger.error(f"[ERROR] Error clearing tables: {e}")
             self.conn.rollback()
             raise
 
@@ -163,7 +163,7 @@ class SyntheticDataGenerator:
                     (current_date.month - 1) // 3 + 1,
                     current_date.year,
                     current_date.year,
-                    1 if current_date.weekday() >= 4 else 0,
+                    current_date.weekday() >= 4,  # True for Friday-Sunday (weekday 4-6)
                     False,
                     None,
                 )
@@ -179,7 +179,7 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, dates)
         self.conn.commit()
-        logger.info("✅ Inserted %d date records", len(dates))
+        logger.info("[OK] Inserted %d date records", len(dates))
 
     def generate_dim_store(self) -> None:
         """Generate store dimension table."""
@@ -226,7 +226,7 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, stores)
         self.conn.commit()
-        logger.info("✅ Inserted %d store records", len(stores))
+        logger.info("[OK] Inserted %d store records", len(stores))
 
     def generate_dim_product(self) -> None:
         """Generate product dimension table."""
@@ -284,7 +284,7 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, products)
         self.conn.commit()
-        logger.info("✅ Inserted %d product records", len(products))
+        logger.info("[OK] Inserted %d product records", len(products))
 
     def generate_dim_customer(self) -> None:
         """Generate customer dimension table."""
@@ -332,7 +332,7 @@ class SyntheticDataGenerator:
         """
         self.cursor.executemany(insert_query, customers)
         self.conn.commit()
-        logger.info("✅ Inserted %d customer records", len(customers))
+        logger.info("[OK] Inserted %d customer records", len(customers))
 
     def generate_fact_sales(self) -> None:
         """Generate fact sales table (~1M transactions)."""
@@ -435,7 +435,7 @@ class SyntheticDataGenerator:
             )
             sales_records = []
 
-        logger.info("✅ Inserted %d total fact sales records", sale_id - 1)
+        logger.info("[OK] Inserted %d total fact sales records", sale_id - 1)
 
     def create_indexes(self) -> None:
         """Create indexes for query optimization."""
@@ -460,7 +460,7 @@ class SyntheticDataGenerator:
                     logger.warning(f"Index creation warning: {e}")
                 self.conn.rollback()
 
-        logger.info("✅ Created %d indexes", created_count)
+        logger.info("[OK] Created %d indexes", created_count)
 
     def generate_all(self) -> None:
         """Run the complete data generation pipeline."""
@@ -492,11 +492,11 @@ class SyntheticDataGenerator:
             self.create_indexes()
 
             logger.info("=" * 60)
-            logger.info("✅ SYNTHETIC DATA GENERATION COMPLETED SUCCESSFULLY!")
+            logger.info("[OK] SYNTHETIC DATA GENERATION COMPLETED SUCCESSFULLY!")
             logger.info("=" * 60)
         except Exception as e:
             logger.error("=" * 60)
-            logger.error(f"❌ ERROR DURING DATA GENERATION: {e}")
+            logger.error(f"[ERROR] ERROR DURING DATA GENERATION: {e}")
             logger.error("=" * 60)
             raise
         finally:
