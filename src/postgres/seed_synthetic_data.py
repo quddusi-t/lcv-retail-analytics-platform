@@ -10,6 +10,14 @@ Generates realistic retail data for testing and development:
 Usage:
     python src/postgres/seed_synthetic_data.py
 
+Logging:
+    Execution logs are written to seed_data.log with rotation enabled (5MB max per file, 3 backups retained).
+    Logs include step-by-step progress, record counts, and any errors for easy troubleshooting.
+
+Reproducibility:
+    Set RANDOM_SEED to generate identical datasets across runs (enables regression testing and debugging).
+    Default seed=42 produces consistent results for development/testing workflows.
+
 Required Environment Variables:
     POSTGRES_HOST: PostgreSQL host
     POSTGRES_PORT: PostgreSQL port (default: 5432)
@@ -23,7 +31,7 @@ Optional Configuration (Defaults Provided):
     NUM_CUSTOMERS: Number of customers to generate (default: 10000)
     NUM_SALES: Number of sales transactions to generate (default: 1000000)
     DATE_RANGE_DAYS: Historical data range in days (default: 730)
-    RANDOM_SEED: Random seed for reproducibility (default: 42)
+    RANDOM_SEED: Random seed for deterministic data generation (default: 42)
 """
 
 import logging
