@@ -56,6 +56,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress noisy database driver logs (psycopg2 is verbose in DEBUG/INFO mode)
+logging.getLogger("psycopg2").setLevel(logging.WARNING)
+
+# TODO: Future enhancement for observability at scale
+# Consider switching to structured JSON logging (e.g., python-json-logger) when
+# integrating with centralized monitoring/telemetry systems. Useful for parsing
+# logs in ELK, Datadog, Splunk or similar platforms.
+
 # Load environment variables
 load_dotenv()
 
