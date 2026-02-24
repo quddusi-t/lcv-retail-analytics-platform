@@ -296,6 +296,29 @@ python -m ruff check src/
   - Rotate regularly
   - Document what each secret is used for
 
+### Domain Constants & Business Rules
+- [ ] **Separate domain constants from configuration**
+  ```python
+  # ✅ GOOD: Keep small, stable constants in code
+  REGIONS = ["North", "South", "East", "West"]
+  PRODUCT_CATEGORIES = {"Textile": [...], "Accessories": [...]}
+
+  # ✅ Configurable params from environment
+  NUM_STORES = int(os.getenv("NUM_STORES", 50))
+  NUM_PRODUCTS = int(os.getenv("NUM_PRODUCTS", 500))
+  ```
+
+- [ ] **Move to external config (YAML/JSON) when:**
+  - Business rules change frequently (no code deploy needed)
+  - Supporting multiple environments with different constants
+  - Number of constants grows significantly (50+ items)
+  - International expansion requires regional customization
+
+- [ ] **Current approach is pragmatic for MVP:**
+  - Code constants work fine for stable, small datasets
+  - Easy to version control and review
+  - Upgrade to external config in Week 3-4 if needed
+
 ---
 
 ## 📦 Dependency Management

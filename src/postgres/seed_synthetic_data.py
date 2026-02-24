@@ -93,6 +93,11 @@ DB_CONFIG = {
 }
 
 # Domain Constants
+# TODO: Future enhancement — Move to external YAML/JSON config when:
+#   • Supporting international regions (more than 5-10 defined)
+#   • Business rules need frequent updates without code deploy
+#   • Multiple environments need different product hierarchies
+# Current approach (code constants) is pragmatic for MVP/dev phase.
 REGIONS = ["North", "South", "East", "West", "Central"]
 PRODUCT_CATEGORIES = {
     "Textile": ["T-Shirt", "Dress", "Pants", "Jacket", "Sweater"],
