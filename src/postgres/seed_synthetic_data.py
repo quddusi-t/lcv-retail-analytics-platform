@@ -341,6 +341,16 @@ class SyntheticDataGenerator:
         logger.info("Generating %d fact sales records (in batches)...", NUM_SALES)
         np.random.seed(RANDOM_SEED)
 
+        # Get actual product, store, and customer IDs from database
+        self.cursor.execute("SELECT product_id FROM dim_product ORDER BY product_id")
+        product_ids = [row[0] for row in self.cursor.fetchall()]
+
+        self.cursor.execute("SELECT store_id FROM dim_store ORDER BY store_id")
+        store_ids = [row[0] for row in self.cursor.fetchall()]
+
+        self.cursor.execute("SELECT customer_id FROM dim_customer ORDER BY customer_id")
+        customer_ids = [row[0] for row in self.cursor.fetchall()]
+
         base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
         sales_records = []
         sale_id = 1
@@ -352,31 +362,31 @@ class SyntheticDataGenerator:
         for batch_num in range(0, total_batches):
             for _ in range(batch_size):
                 sale_date = base_date + timedelta(
-                    days=np.random.randint(0, DATE_RANGE_DAYS + 1)
+                    days=int(np.random.randint(0, DATE_RANGE_DAYS + 1))
                 )
-                store_id = np.random.randint(1, NUM_STORES + 1)
-                product_id = np.random.randint(1, NUM_PRODUCTS + 1)
+                store_id = int(np.random.choice(store_ids))
+                product_id = int(np.random.choice(product_ids))
 
                 # 80% of sales tracked to loyalty members: enables customer segmentation analysis
                 # 20% anonymous cash/guest transactions: realistic retail scenario
                 if np.random.random() < 0.8:
-                    customer_id = np.random.randint(1, NUM_CUSTOMERS + 1)
+                    customer_id = int(np.random.choice(customer_ids))
                 else:
                     customer_id = None
 
-                quantity = np.random.randint(1, 10)
-                unit_price = np.random.uniform(10, 200)
+                quantity = int(np.random.randint(1, 10))
+                unit_price = float(np.random.uniform(10, 200))
 
                 # Calculate cost: assumes 40-60% margin on cost
                 # Markup ranges from 1.5x to 2.5x to cover wholesale cost + operating expenses + profit
-                cost_markup = np.random.uniform(1.5, 2.5)
+                cost_markup = float(np.random.uniform(1.5, 2.5))
                 unit_cost = unit_price / cost_markup
                 cost_amount = unit_cost * quantity
 
                 # Discount distribution: mimics promotional strategy
                 # 50% no discount, 20% small (5%), 15% moderate (10%), 10% high (15%), 5% deep (20%)
-                discount_pct = np.random.choice(
-                    [0, 5, 10, 15, 20], p=[0.5, 0.2, 0.15, 0.1, 0.05]
+                discount_pct = int(
+                    np.random.choice([0, 5, 10, 15, 20], p=[0.5, 0.2, 0.15, 0.1, 0.05])
                 )
                 total_amount = unit_price * quantity
                 discount_amount = (
@@ -397,7 +407,7 @@ class SyntheticDataGenerator:
                     cost_amount = -abs(cost_amount)
                     margin_amount = net_amount - cost_amount
 
-                payment_method = np.random.choice(payment_methods)
+                payment_method = str(np.random.choice(payment_methods))
 
                 sales_records.append(
                     (

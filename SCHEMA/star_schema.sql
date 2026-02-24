@@ -129,15 +129,19 @@ CREATE INDEX idx_fact_sales_store_product_date ON fact_sales(store_id, product_i
 -- Constraint: quantity > 0
 ALTER TABLE fact_sales ADD CONSTRAINT check_quantity_positive CHECK (quantity > 0);
 
--- Constraint: net_amount >= 0
-ALTER TABLE fact_sales ADD CONSTRAINT check_net_amount_non_negative CHECK (net_amount >= 0);
+-- Constraint: net_amount can be positive (sale) or negative (return)
+ALTER TABLE fact_sales ADD CONSTRAINT check_net_amount_valid CHECK (net_amount != 0);
 
--- Constraint: cost_amount > 0
-ALTER TABLE fact_sales ADD CONSTRAINT check_cost_amount_positive CHECK (cost_amount > 0);
+-- Constraint: cost_amount can be positive (sale) or negative (return)
+ALTER TABLE fact_sales ADD CONSTRAINT check_cost_amount_valid CHECK (cost_amount != 0);
 
--- Constraint: margin = net - cost
+-- Constraint: net and cost amounts must have same sign (both positive or both negative)
+ALTER TABLE fact_sales ADD CONSTRAINT check_amounts_sign_consistency
+    CHECK ((net_amount > 0 AND cost_amount > 0) OR (net_amount < 0 AND cost_amount < 0));
+
+-- Constraint: margin = net - cost (allowing 0.01 rounding tolerance)
 ALTER TABLE fact_sales ADD CONSTRAINT check_margin_calculation
-    CHECK (ABS((net_amount - cost_amount) - margin_amount) < 0.01);
+    CHECK (ABS((net_amount - cost_amount) - margin_amount) <= 0.01);
 
 -- ============================================================
 -- ANALYTIC VIEWS
