@@ -38,13 +38,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
-## [0.1.0] - 2026-02-24
+## [Unreleased]
 
-### Initial Release
+### Added (Feb 24, 2026 - Evening)
+- **Error handling** — Top-level try-except with proper logging and failure reporting
+- **Exit codes** — Return 0 for success, 1 for fatal errors (CI/CD pipeline integration)
+- **Schema validation** — Validate tables exist before data insertion (fail fast pattern)
+- **Elapsed time tracking** — Log pipeline execution time in seconds and minutes for observability
+- **Test configurations** — Small (5 stores), medium (25 stores), production (50 stores) data generation options
+- **Unit test roadmap** — TODO comments for future generator-specific unit tests
+- **Data quality validation** — Schema validation examples in GOOD_PRACTICES.md
+- **Testing best practices** — Added to GOOD_PRACTICES.md with code examples
 
-**Objective**: Establish foundation for end-to-end retail analytics platform
+### Changed (Feb 24, 2026 - Evening)
+- **Pipeline steps**: Increased from 7 to 8 (added schema validation as step 1)
+- **Updated GOOD_PRACTICES.md** with error handling, exit codes, and testing patterns
+- **Updated src/postgres/README.md** with test run configurations and exit code documentation
+- **Improved README.md** status to Week 1 Complete
 
-#### Added
+### Fixed
+- Improved error handling and reporting for failed pipeline runs
+- Better observability with elapsed time tracking
+
+---
+
+## [0.1.0] - 2026-02-24 (Earlier that day)
 - ✅ Project initialized with Python 3.10+
 - ✅ PostgreSQL source database schema with fact/dimension tables
 - ✅ Virtual environment setup with dependency pinning (`pyproject.toml`)
