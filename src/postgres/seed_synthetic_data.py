@@ -36,6 +36,7 @@ Optional Configuration (Defaults Provided):
 
 import logging
 import os
+import sys
 from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 
@@ -592,34 +593,58 @@ class SyntheticDataGenerator:
 
 
 def main() -> None:
-    """Entry point for synthetic data generation."""
-    logger.info(" " * 60)
-    logger.info("LCV RETAIL ANALYTICS PLATFORM - SYNTHETIC DATA GENERATOR")
-    logger.info(" " * 60)
+    """Entry point for synthetic data generation with proper error handling and exit codes.
 
-    # Log database configuration (safe - no password)
-    logger.info(
-        "Database config: host=%s port=%s db=%s user=%s",
-        POSTGRES_HOST,
-        POSTGRES_PORT,
-        POSTGRES_DB,
-        POSTGRES_USER,
-    )
+    Exit codes:
+        0 = success
+        1 = fatal error (logs error and exits for CI/CD detection)
+    """
+    try:
+        start_time = datetime.now()
+        logger.info(" " * 60)
+        logger.info("LCV RETAIL ANALYTICS PLATFORM - SYNTHETIC DATA GENERATOR")
+        logger.info(" " * 60)
 
-    # Log data generation configuration
-    logger.info(
-        "Data generation config: stores=%d products=%d customers=%d sales=%d days=%d seed=%d",
-        NUM_STORES,
-        NUM_PRODUCTS,
-        NUM_CUSTOMERS,
-        NUM_SALES,
-        DATE_RANGE_DAYS,
-        RANDOM_SEED,
-    )
+        # Log database configuration (safe - no password)
+        logger.info(
+            "Database config: host=%s port=%s db=%s user=%s",
+            POSTGRES_HOST,
+            POSTGRES_PORT,
+            POSTGRES_DB,
+            POSTGRES_USER,
+        )
 
-    # Use context manager to ensure database connection always closes cleanly
-    with SyntheticDataGenerator(DB_CONFIG) as generator:
-        generator.generate_all()
+        # Log data generation configuration
+        logger.info(
+            "Data generation config: stores=%d products=%d customers=%d sales=%d days=%d seed=%d",
+            NUM_STORES,
+            NUM_PRODUCTS,
+            NUM_CUSTOMERS,
+            NUM_SALES,
+            DATE_RANGE_DAYS,
+            RANDOM_SEED,
+        )
+
+        # Use context manager to ensure database connection always closes cleanly
+        with SyntheticDataGenerator(DB_CONFIG) as generator:
+            generator.generate_all()
+
+        # Calculate and log elapsed time for observability
+        elapsed_seconds = (datetime.now() - start_time).total_seconds()
+        elapsed_minutes = elapsed_seconds / 60
+        logger.info(
+            "Pipeline completed successfully in %.2f seconds (%.2f minutes)",
+            elapsed_seconds,
+            elapsed_minutes,
+        )
+        sys.exit(0)
+
+    except Exception as e:
+        # Top-level error handler: logs fatal errors cleanly for CI/CD detection
+        logger.error("=" * 60)
+        logger.error("[FATAL] Pipeline failed: %s", str(e), exc_info=True)
+        logger.error("=" * 60)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
