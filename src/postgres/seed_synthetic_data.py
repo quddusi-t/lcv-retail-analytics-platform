@@ -67,6 +67,16 @@ logging.getLogger("psycopg2").setLevel(logging.WARNING)
 # Load environment variables
 load_dotenv()
 
+# Validate required environment variables: fail fast to prevent silent misconfigurations
+# (e.g., running for 1M records, then failing at connection time)
+required_vars = ["POSTGRES_HOST", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"]
+missing_vars = [var for var in required_vars if not os.getenv(var)]
+if missing_vars:
+    raise RuntimeError(
+        f"Missing required environment variables: {', '.join(missing_vars)}. "
+        f"Please set them in .env or as system environment variables."
+    )
+
 # Extract configuration for safe logging
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", 5432))
