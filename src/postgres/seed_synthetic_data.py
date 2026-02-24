@@ -114,14 +114,36 @@ DATE_RANGE_DAYS = int(os.getenv("DATE_RANGE_DAYS", 730))  # 2 years
 RANDOM_SEED = int(os.getenv("RANDOM_SEED", 42))
 
 
+class DataGenerationError(Exception):
+    """Custom exception for data generation failures."""
+
+    pass
+
+
 class SyntheticDataGenerator:
-    """Generate synthetic retail data for PostgreSQL."""
+    """Generate synthetic retail data for PostgreSQL.
+
+    Supports context manager for automatic resource cleanup:
+        with SyntheticDataGenerator(DB_CONFIG) as gen:
+            gen.generate_all()
+    """
 
     def __init__(self, db_config: dict):
         """Initialize database connection."""
         self.db_config = db_config
         self.conn = None
         self.cursor = None
+
+    def __enter__(self):
+        """Context manager entry: establish database connection."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit: ensure connection always closes cleanly."""
+        self.disconnect()
+        # Return False to propagate exceptions (don't suppress them)
+        return False
 
     def connect(self) -> None:
         """Connect to PostgreSQL database."""
@@ -508,13 +530,17 @@ class SyntheticDataGenerator:
         logger.info("[OK] Created %d indexes", created_count)
 
     def generate_all(self) -> None:
-        """Run the complete data generation pipeline."""
+        """Run the complete data generation pipeline.
+
+        Should be called within a context manager to ensure proper resource cleanup:
+            with SyntheticDataGenerator(DB_CONFIG) as gen:
+                gen.generate_all()
+        """
         try:
             logger.info("=" * 60)
             logger.info("STARTING SYNTHETIC DATA GENERATION PIPELINE")
             logger.info("=" * 60)
 
-            self.connect()
             logger.info("Step 1/7: Clearing existing data...")
             self.clear_tables()
 
@@ -574,8 +600,9 @@ def main() -> None:
         RANDOM_SEED,
     )
 
-    generator = SyntheticDataGenerator(DB_CONFIG)
-    generator.generate_all()
+    # Use context manager to ensure database connection always closes cleanly
+    with SyntheticDataGenerator(DB_CONFIG) as generator:
+        generator.generate_all()
 
 
 if __name__ == "__main__":
