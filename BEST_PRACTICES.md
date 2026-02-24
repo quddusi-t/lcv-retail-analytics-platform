@@ -338,22 +338,52 @@ python -m ruff check src/
   - Production: Manual approval required
 
 ### Monitoring & Logging
-- [ ] **Add structured logging**
+- [x] **Add structured logging with rotation**
   ```python
   import logging
+  from logging.handlers import RotatingFileHandler
+
+  logging.basicConfig(
+      level=logging.INFO,
+      format="%(asctime)s [%(levelname)s] %(message)s",
+      handlers=[
+          logging.StreamHandler(),  # console output
+          RotatingFileHandler(
+              "app.log", maxBytes=5_000_000, backupCount=3
+          )  # 5MB files, keep 3 backups
+      ],
+  )
   logger = logging.getLogger(__name__)
   logger.info(f"Processing customer {customer_id}")
   logger.error(f"Failed to load data: {error}")
   ```
+  - **Why rotating?** Prevents unbounded log file growth; keeps last 3 rotations (15MB max)
+  - **Console + File**: Immediate visibility during dev, permanent record for debugging
+
+- [x] **Suppress noisy third-party logs**
+  ```python
+  # Reduce verbosity from chatty libraries (psycopg2, urllib3, etc.)
+  logging.getLogger("psycopg2").setLevel(logging.WARNING)
+  logging.getLogger("urllib3").setLevel(logging.WARNING)
+  ```
+  - **Why?** Database drivers log internal protocol; clutters your application logs
+  - **Result**: Only see YOUR events, not driver noise
 
 - [ ] **Avoid emojis in log messages and scripts**
   - ❌ BAD: `logger.info("✅ Data loaded successfully")`
   - ✅ GOOD: `logger.info("[OK] Data loaded successfully")`
   - **Reason**: Emojis cause encoding issues on Windows terminals (charmap codec errors), CI/CD systems, and log aggregation pipelines that expect ASCII-only output. Use `[OK]`, `[ERROR]`, `[WARNING]` instead.
 
+- [ ] **Plan for observability at scale** (future enhancement)
+  - Current: Text logs to file ✅
+  - Next: Structured JSON logging when adding ELK/Datadog (Week 3+)
+  - **Why JSON?** Machine-parseable for log aggregation platforms; enables metrics extraction, anomaly detection, automated alerting
+  - Tools: `python-json-logger`, Datadog Agent, ELK Stack, Splunk
+
 - [ ] **Monitor in production**
   - Track errors, latency, resource usage
   - Set up alerts for failures
+  - Log to centralized system (Datadog/ELK) for multi-service visibility
 
 ---
 
