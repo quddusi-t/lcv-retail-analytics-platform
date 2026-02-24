@@ -13,6 +13,27 @@ A checklist to prevent common mistakes, maintain consistency, and deliver produc
   - [x] Add `.env` to `.gitignore` (checked on line 2)
   - [x] Document required env vars in `.env.template` (includes PostgreSQL, GCP, API, dbt config)
   - **Next step**: Copy `.env.template` to `.env` and fill in actual values
+
+- [x] **Validate required environment variables — Fail Fast**
+  ```python
+  from dotenv import load_dotenv
+  import os
+
+  load_dotenv()
+
+  # Validate required env vars immediately (prevents silent misconfigurations)
+  required_vars = ["POSTGRES_HOST", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"]
+  missing_vars = [var for var in required_vars if not os.getenv(var)]
+  if missing_vars:
+      raise RuntimeError(
+          f"Missing required environment variables: {', '.join(missing_vars)}. "
+          f"Please set them in .env or as system environment variables."
+      )
+  ```
+  - **Why?** Prevents runtime failures after hours of processing (fail at startup instead)
+  - **Example error**: `RuntimeError: Missing required environment variables: POSTGRES_HOST. Please set them in .env or as system environment variables.`
+  - **Benefit**: Immediate feedback, saves time debugging
+
 - [x] **Create `.gitignore` before first commit**
   - [x] Standard ignores: `node_modules/`, `venv/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.egg-info/`
   - [x] IDE ignores: `.vscode/`, `.idea/`, `.DS_Store`, `*.swp`
