@@ -391,6 +391,23 @@ class SyntheticDataGenerator:
 
     def generate_fact_sales(self) -> None:
         """Generate fact sales table (~1M transactions)."""
+        # TODO: Data insertion optimization roadmap
+        # Current approach (executemany in 10k batches) works well for MVP.
+        # Future optimizations when scaling:
+        #   1. Dimension tables batch inserts: When dim_* tables grow to 1M+ rows
+        #      - Currently small (11k total), so single executemany() is fine
+        #      - Batch when memory/performance becomes bottleneck
+        #   2. Bulk loading with COPY FROM: When inserting 10M+ rows
+        #      - PostgreSQL COPY is 2-5x faster than executemany() for large volumes
+        #      - Useful for streaming pipelines or massive data imports
+        #   3. Separate generate/insert methods: When testing data generation logic
+        #      - Enables unit testing generation independently of DB I/O
+        #      - Decouple business logic (random generation) from infrastructure (DB writes)
+        # Trigger points:
+        #   - Dimension batching: NUM_STORES > 100k OR NUM_PRODUCTS > 1M
+        #   - COPY FROM: NUM_SALES > 10M
+        #   - Generate/insert split: When data gen unit test coverage needed
+
         logger.info("Generating %d fact sales records (in batches)...", NUM_SALES)
         np.random.seed(RANDOM_SEED)
 
