@@ -171,6 +171,50 @@ class SyntheticDataGenerator:
             self.conn.close()
         logger.info("Disconnected from PostgreSQL")
 
+    def validate_schema(self) -> None:
+        """
+        Validate that target tables exist and have expected schema.
+
+        TODO: Schema validation enhancement roadmap:
+        - Phase 1 (MVP): Check table existence only (prevent silent failure)
+        - Phase 2: Verify column names and types match expected schema
+        - Phase 3: Add detailed column constraint validation (NOT NULL, UNIQUE, etc.)
+        - Phase 4: Integrate with Great Expectations for comprehensive data quality
+
+        This runs before data insertion to fail fast on schema mismatches
+        rather than discovering errors mid-pipeline.
+        """
+        required_tables = [
+            "dim_date",
+            "dim_store",
+            "dim_product",
+            "dim_customer",
+            "fact_sales",
+        ]
+        try:
+            logger.info("Validating target schema...")
+            for table in required_tables:
+                self.cursor.execute(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1 FROM information_schema.tables
+                        WHERE table_name = %s
+                    )
+                    """,
+                    (table,),
+                )
+                exists = self.cursor.fetchone()[0]
+                if not exists:
+                    raise DataGenerationError(
+                        f"Required table '{table}' does not exist in database. "
+                        f"Run: psql -f SCHEMA/star_schema.sql"
+                    )
+                logger.debug(f"  ✓ {table}")
+            logger.info("[OK] All required tables exist")
+        except Exception as e:
+            logger.error(f"[ERROR] Schema validation failed: {e}")
+            raise
+
     def clear_tables(self) -> None:
         """Clear existing data from tables (for idempotency)."""
         try:
@@ -559,25 +603,28 @@ class SyntheticDataGenerator:
             logger.info("STARTING SYNTHETIC DATA GENERATION PIPELINE")
             logger.info("=" * 60)
 
-            logger.info("Step 1/7: Clearing existing data...")
+            logger.info("Step 1/8: Validating target schema...")
+            self.validate_schema()
+
+            logger.info("Step 2/8: Clearing existing data...")
             self.clear_tables()
 
-            logger.info("Step 2/7: Generating date dimension...")
+            logger.info("Step 3/8: Generating date dimension...")
             self.generate_dim_date()
 
-            logger.info("Step 3/7: Generating store dimension...")
+            logger.info("Step 4/8: Generating store dimension...")
             self.generate_dim_store()
 
-            logger.info("Step 4/7: Generating product dimension...")
+            logger.info("Step 5/8: Generating product dimension...")
             self.generate_dim_product()
 
-            logger.info("Step 5/7: Generating customer dimension...")
+            logger.info("Step 6/8: Generating customer dimension...")
             self.generate_dim_customer()
 
-            logger.info("Step 6/7: Generating fact sales...")
+            logger.info("Step 7/8: Generating fact sales...")
             self.generate_fact_sales()
 
-            logger.info("Step 7/7: Creating indexes...")
+            logger.info("Step 8/8: Creating indexes...")
             self.create_indexes()
 
             logger.info("=" * 60)

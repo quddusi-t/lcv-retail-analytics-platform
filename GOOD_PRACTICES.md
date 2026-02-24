@@ -237,6 +237,36 @@ git push origin feature-branch
         - id: ruff
   ```
 
+### Data Quality & Validation (ETL/Data Pipelines)
+- [ ] **Schema validation before inserting into database**
+  - Validate column counts, types, and constraints match target schema
+  - Check for nulls, duplicates, and range violations
+  - Example: Ensure prices are positive, quantities are integers, dates are within range
+  ```python
+  def validate_sales_row(row: dict) -> bool:
+      """Validate a sales transaction before insertion."""
+      try:
+          assert row['quantity'] > 0, "Quantity must be positive"
+          assert row['price'] >= 0, "Price must be non-negative"
+          assert row['discount'] >= 0 and row['discount'] <= 100, "Discount out of range"
+          return True
+      except AssertionError as e:
+          logger.error("Schema validation failed: %s", str(e))
+          return False
+  ```
+
+- [ ] **Test individual data generators** (Unit tests for business logic)
+  - Store generator produces consistent region distribution
+  - Product generator respects category constraints
+  - Customer generator creates valid date ranges
+  - Note: MVPs can skip generator-level unit tests; prioritize integration tests instead
+  ```
+  # TODO: Add unit tests for individual generators
+  # - test_store_generator: Verify region distribution logic
+  # - test_customer_generator: Verify age/signup date constraints
+  # - test_sales_generator: Verify foreign key references exist
+  ```
+
 ### Run Tests Before Committing
 ```bash
 pytest tests/
