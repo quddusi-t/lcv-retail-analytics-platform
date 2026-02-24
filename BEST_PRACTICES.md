@@ -490,12 +490,53 @@ python -m ruff check src/
   - Known limitations
 
 ### Python Projects
-- [ ] **Use type hints everywhere**
+- [x] **Use type hints everywhere**
   ```python
   from typing import Optional, List
   def process(data: List[dict], limit: Optional[int] = None) -> dict:
       ...
   ```
+
+- [x] **Use context managers for resource management**
+  ```python
+  # ❌ BAD: Manual resource handling
+  connection = create_connection()
+  try:
+      do_work(connection)
+  finally:
+      connection.close()
+
+  # ✅ GOOD: Context manager ensures cleanup even on exceptions
+  with create_connection() as connection:
+      do_work(connection)
+
+  # Implement context managers in classes:
+  class DatabaseGenerator:
+      def __enter__(self):
+          self.connect()
+          return self
+
+      def __exit__(self, exc_type, exc_val, exc_tb):
+          self.disconnect()
+          return False  # Don't suppress exceptions
+  ```
+  - **Benefit**: Guarantees resource cleanup (files, DB connections, locks, etc.)
+  - **Example**: `with SyntheticDataGenerator(db_config) as gen: gen.generate_all()`
+
+- [x] **Use custom exceptions for domain errors**
+  ```python
+  class DataGenerationError(Exception):
+      """Raised when synthetic data generation fails."""
+      pass
+
+  # Usage:
+  try:
+      generate_data()
+  except DataGenerationError as e:
+      logger.error(f"Data generation failed: {e}")
+      raise
+  ```
+  - **Benefit**: Clearer error handling upstream; domains errors distinct from system errors
 
 - [ ] **Use dataclasses or Pydantic for data models**
   ```python
