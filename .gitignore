@@ -56,3 +56,4 @@ logs/
 # BigQuery credentials
 google-credentials.json
 service-account-key.json
+lcv-gcp-key.json

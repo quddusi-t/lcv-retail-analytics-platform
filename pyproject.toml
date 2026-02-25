@@ -10,8 +10,10 @@ license = {text = "MIT"}
 dependencies = [
     "psycopg2-binary==2.9.10",
     "pandas==2.1.4",
+    "pyarrow==14.0.1",          # Parquet format support (ETL)
     "google-cloud-storage==2.14.0",
     "google-cloud-bigquery==3.14.1",
+    "google-auth==2.26.0",      # GCP service account authentication
     "dbt-core==1.7.0",
     "dbt-bigquery==1.7.0",
     "fastapi==0.109.0",
