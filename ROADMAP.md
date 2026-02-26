@@ -4,6 +4,15 @@
 **Start Date**: February 15, 2026
 **Target Completion**: March 21, 2026
 
+**Progress**:
+- Week 1: ✅ Complete (Feb 23-24)
+- Week 2 (Days 1-2): ✅ Complete (Feb 25-26)
+- Week 2 (Days 3-4): 🔄 In Progress (starting now)
+- Weeks 2-5: ⏳ Pending
+
+**Elapsed Time**: ~10 hours
+**Remaining**: ~65 hours
+
 ---
 
 ## 📋 Executive Summary
@@ -66,19 +75,33 @@ Design a production-grade star schema and master advanced SQL queries for retail
   3. docs: add comprehensive data dictionary
   4. (optional) create ERD diagram
 
-**WEEK 1 STATUS**: ✅ COMPLETE (Core deliverables done. Ready to test data generation next.)
+**WEEK 1 STATUS**: ✅ COMPLETE (Feb 24)
 
 ---
 
-## **Status Summary**
+## **Status Summary – Updated Feb 26**
 
 ### Completed ✅
-- [x] Week 1: Data Modeling & SQL Foundation (COMPLETE)
+- [x] Week 1: Data Modeling & SQL Foundation (Feb 23–24) ✅
+  - Schema design, synthetic data generator (1M records), 6 advanced SQL queries
+  - Git: 7 commits, comprehensive data dictionary + governance
+
+- [x] Week 2, Days 1–2: ETL Extraction Pipeline (Feb 25–26) ✅
+  - ✅ GCP infrastructure setup: project, GCS bucket, BigQuery dataset, service account + key
+  - ✅ `src/etl/postgres_to_gcs.py` created (400+ lines, production-ready)
+  - ✅ Local testing: 1.01M records extracted in 2.25 minutes
+  - ✅ Production run: All 5 tables uploaded to GCS in 6.74 minutes
+  - ✅ Files: gs://lcv-retail-analytics-dw/2026-02-26/*.parquet (27.3 MB)
+  - ✅ Error handling: Exit codes (0/1), context managers, comprehensive logging
+  - ✅ Documentation: BEST_PRACTICES.md enhanced with GCP/BigQuery/credentials guidance
+  - ✅ VS Code setup: .vscode/settings.json for auto-activated venv
+  - Git: 2 commits (postgres_to_gcs.py, BEST_PRACTICES enhancements)
 
 ### In Progress 🔄
-- [ ] Week 2: ETL Pipeline & Data Quality (STARTING SOON)
+- [ ] Week 2, Days 3–4: Load to BigQuery & Initialize dbt (NEXT)
 
 ### Not Started ⏳
+- [ ] Week 2, Day 5+: Data Quality Checks
 - [ ] Week 3: BigQuery Analytics Layer & Performance Optimization
 - [ ] Week 4: BI Dashboards & KPI Design
 - [ ] Week 5: ML Models & API Integration
@@ -92,23 +115,29 @@ Build an Extract-Load pipeline and set up dbt for transformations.
 
 ### Tasks
 
-#### **Day 1–2: Extract & Load to Cloud Storage**
-- [ ] Install Google Cloud SDK + authenticate
-- [ ] Create `src/etl/postgres_to_gcs.py`
-  - Query Postgres nightly (simulate batch job)
-  - Export FactSales + Dimensions as Parquet files
-  - Upload to Google Cloud Storage (GCS) bucket
-- [ ] Test locally with mock GCS (or free BigQuery sandbox)
-- **Output**: Daily Parquet exports in GCS
+#### **Day 1–2: Extract & Load to Cloud Storage** ✅ COMPLETE
+- [x] Install Google Cloud SDK + authenticate
+- [x] Create `src/etl/postgres_to_gcs.py`
+  - [x] Query Postgres nightly (simulate batch job)
+  - [x] Export FactSales + Dimensions as Parquet files
+  - [x] Upload to Google Cloud Storage (GCS) bucket
+- [x] Test locally with --local flag (Parquet files only, no GCS upload)
+- [x] Test production with full GCS upload (Feb 26, 6:23 AM UTC)
+- **Output**: ✅ Daily Parquet exports in GCS at gs://lcv-retail-analytics-dw/2026-02-26/
 
-#### **Day 3–4: Load to BigQuery & Set Up dbt**
-- [ ] Create BigQuery dataset (`retail_analytics_raw`)
-- [ ] Load Parquet files into raw tables (`raw_sales`, `raw_products`, etc.)
+#### **Day 3–4: Load to BigQuery & Set Up dbt** 🔄 IN PROGRESS
+- [ ] Create BigQuery dataset (`retail_analytics_raw`) ← Already created, needs GCS data loading
+- [ ] Load Parquet files into raw tables (`raw_sales`, `raw_products`, etc.) ← NEXT STEP
+  - Option 1: SQL `CREATE TABLE AS` with EXTERNAL TABLE (fast, free to explore)
+  - Option 2: `bq load` CLI command (programmatic)
+  - Option 3: Python script with BigQuery client library
 - [ ] Initialize dbt project: `dbt init dbt_project`
 - [ ] Create dbt staging models:
   - `stg_sales_clean` (deduplication, null handling, data type fixes)
   - `stg_products_clean` (standardize text, handle nulls)
   - `stg_stores_clean` (region/store level hierarchy)
+  - `stg_customers_clean` (deduplicate, validate emails)
+  - `stg_date_clean` (ensure date continuity, add fiscal periods)
 - [ ] Run: `dbt run` → verify staging models created in BigQuery
 - **Output**: BigQuery staging layer ready
 
@@ -124,18 +153,34 @@ Build an Extract-Load pipeline and set up dbt for transformations.
 
 ### Deliverables
 
-| File | Purpose |
-|------|---------|
-| `src/etl/postgres_to_gcs.py` | Daily batch extract script |
-| `src/etl/dbt_project/` | dbt models (staging + tests) |
-| `tests/data_quality_checks.py` | Custom quality checks |
-| `src/etl/requirements.txt` | Python dependencies (dbt, pandas, etc.) |
+| File | Purpose | Status |
+|------|---------|--------|
+| `src/etl/postgres_to_gcs.py` | Daily batch extract script | ✅ Complete |
+| `src/etl/README.md` | ETL documentation + troubleshooting | ✅ Complete |
+| `src/etl/dbt_project/` | dbt models (staging + tests) | 🔄 In Progress |
+| `tests/data_quality_checks.py` | Custom quality checks | ⏳ Pending |
+| `pyproject.toml` | Python dependencies (dbt, pandas, etc.) | ✅ Complete |
+| `BEST_PRACTICES.md` | GCP/BigQuery/credentials guide | ✅ Complete |
+| `.vscode/settings.json` | VS Code venv auto-activation | ✅ Complete |
 
 ### Success Criteria
-- ✅ Data daily loaded from Postgres → GCS → BigQuery
-- ✅ BigQuery staging tables have clean, deduplicated data
-- ✅ dbt tests pass (0 failures)
-- ✅ Git commits: 3–4 (postgres_to_gcs, dbt models, quality tests)
+
+**Days 1–2: Extract & Load** ✅
+- ✅ Data extracted from Postgres → Parquet (local testing: 2.25 min, 1.01M records)
+- ✅ Data uploaded to GCS (production run: 6.74 min, 27.3 MB)
+- ✅ Exit codes working (0=success, 1=failure)
+- ✅ Comprehensive logging with rotation
+- ✅ Context managers for resource cleanup
+
+**Days 3–4: Load to BigQuery & dbt** ⏳
+- ⏳ BigQuery staging tables created and loaded from GCS Parquet files
+- ⏳ dbt project initialized and configured
+- ⏳ All 5 staging models created and tested
+- ⏳ dbt transformations running successfully
+
+**Day 5+: Data Quality** ⏳
+- ⏳ Data quality tests written and passing (0 failures)
+- ⏳ Git commits: 3–4 (postgres_to_gcs complete, dbt models, quality tests)
 
 ---
 
