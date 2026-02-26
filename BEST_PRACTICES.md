@@ -661,6 +661,277 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ---
 
+## ☁️ Cloud Infrastructure & Credentials (GCP, BigQuery, GCS)
+
+### Service Account & Authentication Setup
+
+- [x] **Create GCP Service Account (never use personal account)**
+  ```
+  GCP Console → Service Accounts → Create Service Account
+  - Name: etl-pipeline (descriptive, lowercase)
+  - Grant roles: BigQuery Admin, Storage Admin
+  - Create JSON key file (download & store securely)
+  ```
+  - **Why separate account?** Audit trail, revoke access without touching personal account, CI/CD-safe
+  - **Key file location:** Store in project root: `./gcp-key.json` (add to `.gitignore`)
+  - **Never commit key files** — They're authentication tokens equivalent to passwords
+
+- [x] **Store GCP credentials in `.env`**
+  ```bash
+  # .env (never commit this)
+  GCP_PROJECT_ID=lcv-retail-analytics-dw
+  GCP_KEY_PATH=./lcv-gcp-key.json
+  GCS_BUCKET=lcv-retail-analytics-dw
+  BIGQUERY_DATASET=retail_analytics_raw
+  ```
+
+  ```bash
+  # .env.template (safe to commit, shows structure)
+  GCP_PROJECT_ID=your-project-id
+  GCP_KEY_PATH=path/to/service-account-key.json
+  GCS_BUCKET=your-bucket-name
+  BIGQUERY_DATASET=your_dataset_name
+  ```
+
+- [x] **Authenticate in Python with service account**
+  ```python
+  from google.oauth2 import service_account
+  from google.cloud import storage
+  import os
+  from dotenv import load_dotenv
+
+  load_dotenv()
+
+  # Load service account key
+  key_path = os.getenv("GCP_KEY_PATH")
+  credentials = service_account.Credentials.from_service_account_file(
+      key_path,
+      scopes=["https://www.googleapis.com/auth/cloud-platform"]
+  )
+
+  # Initialize GCS client
+  storage_client = storage.Client(credentials=credentials)
+  bucket = storage_client.bucket(os.getenv("GCS_BUCKET"))
+  ```
+
+### Google Cloud Storage (GCS) Best Practices
+
+- [x] **Organize with date-partitioned folders**
+  ```
+  gs://bucket-name/
+  ├── 2026-02-25/
+  │   ├── dim_date.parquet
+  │   ├── dim_store.parquet
+  │   └── fact_sales.parquet
+  ├── 2026-02-26/
+  │   ├── dim_date.parquet
+  │   ├── dim_store.parquet
+  │   └── fact_sales.parquet
+  ```
+  - **Why?** YYYY-MM-DD format makes archival, versioning, and troubleshooting easy
+  - Enables BigQuery partition pruning (scan only needed dates)
+  - Simple data lineage: "which files loaded yesterday?"
+
+- [x] **Use Parquet format with Snappy compression**
+  ```python
+  df.to_parquet(
+      path,
+      engine="pyarrow",
+      compression="snappy",  # Best compression/speed tradeoff
+      coerce_timestamps="us"  # Ensure timestamp compatibility
+  )
+  ```
+  - **Parquet benefits:** Columnar (scan only needed cols), 60-80% compression, schema enforcement
+  - **Snappy tradeoff:** ~1.5-2x faster than gzip, ~10-15% larger; good for ETL pipelines
+  - **Use gzip instead if:** Storage cost >> compute cost (archive data)
+
+- [x] **Validate file uploads**
+  ```python
+  blob = bucket.blob(f"{date}/table.parquet")
+  blob.upload_from_filename(local_path)
+
+  # Verify: compare file sizes
+  local_size = os.path.getsize(local_path)
+  gcs_size = blob.size
+  assert local_size == gcs_size, f"Upload mismatch: {local_size} != {gcs_size}"
+  ```
+
+### BigQuery Best Practices
+
+- [x] **Create datasets with appropriate locations**
+  ```python
+  from google.cloud import bigquery
+
+  client = bigquery.Client(credentials=credentials)
+  dataset_id = os.getenv("BIGQUERY_DATASET")
+  dataset = bigquery.Dataset(f"{project_id}.{dataset_id}")
+  dataset.location = "US"  # Multi-region for availability
+  dataset = client.create_dataset(dataset, exists_ok=True)
+  ```
+  - **Location:** "US" (multi-region) for high availability, "us-east1" if cost is critical
+  - **Separate datasets:** `raw` (GCS import), `staging` (dbt), `marts` (analytics)
+
+- [x] **Use External Tables for Parquet in GCS (cheap exploration)**
+  ```sql
+  CREATE OR REPLACE EXTERNAL TABLE raw.fact_sales
+  OPTIONS (
+    format = 'PARQUET',
+    uris = ['gs://bucket-name/2026-02-26/*.parquet'],
+    hive_partition_uri_prefix = 'gs://bucket-name/',
+    require_partition_filter = false
+  );
+  ```
+  - **External table scanning:** $7.25/TB (same as regular query)
+  - **Native table copy:** $0.023/GB first 100GB/month (cheaper for frequent access)
+  - **Strategy:** Explore with external → copy to native when stable
+
+- [x] **Load GCS Parquet into native BigQuery table**
+  ```sql
+  CREATE OR REPLACE TABLE raw.fact_sales AS
+  SELECT * FROM `project.raw.fact_sales_external`;
+  ```
+  - Copies data into BigQuery's columnar storage
+  - Enables clustering, partitioning, incremental loads
+  - ~3-5x faster than external tables for repeated queries
+
+- [x] **Always partition & cluster large tables**
+  ```sql
+  CREATE OR REPLACE TABLE marts.fact_sales (
+    sale_id INT64,
+    sale_date DATE,
+    store_id INT64,
+    amount NUMERIC(10, 2)
+  )
+  PARTITION BY sale_date
+  CLUSTER BY store_id
+  AS SELECT * FROM raw.fact_sales;
+  ```
+  - **Partitioning:** Prune entire date ranges (10-100x scan reduction)
+  - **Clustering:** Sort within partitions (column filtering speedup)
+  - **Cost impact:** Can reduce query costs 50-80% on large tables
+
+### Secrets & Credentials Patterns
+
+- [x] **NEVER hardcode secrets**
+  ```python
+  # ❌ BAD
+  key_path = "/absolute/path/to/key.json"
+  password = "super_secret_123"
+
+  # ✅ GOOD
+  key_path = os.getenv("GCP_KEY_PATH")
+  password = os.getenv("POSTGRES_PASSWORD")
+  ```
+
+- [x] **Rotate credentials periodically**
+  - Service account keys: 90-day rotation (automatic alerts in GCP)
+  - Database passwords: Every 6 months minimum
+  - Check git history: `git log -p | grep -i "password\|key\|secret"` (should be empty)
+
+- [x] **Use `.env` template pattern**
+  ```bash
+  # .env.template (commit this)
+  POSTGRES_HOST=localhost
+  POSTGRES_USER=postgres
+  POSTGRES_PASSWORD=your_password_here
+  GCP_KEY_PATH=./path/to/key.json
+
+  # .env (never commit)
+  POSTGRES_HOST=localhost
+  POSTGRES_USER=postgres
+  POSTGRES_PASSWORD=malezya2652%&
+  GCP_KEY_PATH=./lcv-gcp-key.json
+  ```
+
+- [x] **Validate credentials at startup (Fail-Fast)**
+  ```python
+  def validate_gcp_credentials():
+      """Validate GCP service account key exists and is readable"""
+      key_path = os.getenv("GCP_KEY_PATH")
+      if not os.path.exists(key_path):
+          raise FileNotFoundError(f"GCP key not found: {key_path}")
+      try:
+          from google.oauth2 import service_account
+          service_account.Credentials.from_service_account_file(key_path)
+      except Exception as e:
+          raise ValueError(f"Invalid GCP key: {e}")
+      logger.info(f"✓ GCP credentials validated: {key_path}")
+
+  # Call at application startup
+  validate_gcp_credentials()
+  ```
+
+---
+
+## 🔄 ETL Pipeline Patterns (Extract, Transform, Load)
+
+- [x] **Use context managers for resource cleanup**
+  ```python
+  class DataExtractor:
+      def __init__(self, db_config, gcs_credentials):
+          self.db_config = db_config
+          self.gcs_credentials = gcs_credentials
+          self.db_conn = None
+          self.gcs_client = None
+
+      def __enter__(self):
+          self.db_conn = create_connection(self.db_config)
+          self.gcs_client = storage.Client(credentials=self.gcs_credentials)
+          return self
+
+      def __exit__(self, exc_type, exc_val, exc_tb):
+          """Cleanup: close connections regardless of success/failure"""
+          if self.db_conn:
+              self.db_conn.close()
+          return False  # Don't suppress exceptions
+
+  # Usage
+  with DataExtractor(config, creds) as extractor:
+      data = extractor.extract_table("sales")
+  ```
+  - **Why?** Guarantees cleanup even if exception occurs (prevents resource leaks)
+
+- [x] **Implement idempotent pipelines**
+  ```python
+  # ✅ If pipeline crashes halfway, re-run produces same result
+  # Upload with date-based path (skip if file exists)
+  gcs_path = f"gs://bucket/{YYYY-MM-DD}/table.parquet"
+  if not blob_exists(gcs_path):
+      upload_to_gcs(data, gcs_path)
+  else:
+      logger.info(f"Skipping {gcs_path} (already uploaded)")
+  ```
+
+- [x] **Add timestamps & exit codes for monitoring**
+  ```python
+  import sys
+  from datetime import datetime
+
+  def main():
+      start_time = datetime.now()
+      try:
+          logger.info("Pipeline started")
+          extract_and_load_data()
+          elapsed = (datetime.now() - start_time).total_seconds()
+          logger.info(f"✓ Pipeline completed in {elapsed:.2f} seconds")
+          sys.exit(0)  # Success
+      except Exception as e:
+          logger.error(f"✗ Pipeline failed: {e}", exc_info=True)
+          sys.exit(1)  # Failure
+  ```
+  - **Exit codes:** 0 = success, 1 = fatal error (CI/CD can detect failures)
+  - **Elapsed time:** Monitor performance trends
+
+- [x] **Log extraction metadata**
+  ```python
+  logger.info(f"[OK] Extracted {record_count} records from {table_name}")
+  logger.info(f"[OK] Saved {table_name}.parquet ({file_size_mb:.2f} MB)")
+  logger.info(f"[OK] Uploaded to gs://{bucket}/{date}/{table_name}.parquet")
+  ```
+  - **Why?** Audit trail, debugging, monitoring pipeline health
+
+---
+
 ## 🧠 Mental Checklist Before Pushing
 
 ```
@@ -692,5 +963,6 @@ Before each git push, ask yourself:
 
 ---
 
-**Last Updated**: February 19, 2026
+**Last Updated**: February 26, 2026
 **Purpose**: Universal roadmap for professional development practices
+**Latest Additions**: GCP/BigQuery setup, credentials management, ETL pipeline patterns, context managers
