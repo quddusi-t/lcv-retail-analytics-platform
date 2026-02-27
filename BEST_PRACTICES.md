@@ -1067,6 +1067,286 @@ load_job.result()  # Wait for completion with .result()
 
 ---
 
+## 🔄 dbt (Data Build Tool) Best Practices
+
+### Project Initialization: Manual vs `dbt init`
+
+**Scenario**: When should you use `dbt init` vs manual setup?
+
+#### Option 1: Use `dbt init` (Quick Start)
+- Good for: Prototypes, single-developer projects, learning dbt
+- Pros: Automatic scaffolding, standard directory structure
+- Cons: Can have CLI version issues, harder to customize
+```bash
+dbt init my_project
+cd my_project
+dbt run
+```
+
+#### Option 2: Manual Setup (Recommended for Teams)
+- Good for: Production projects, teams, strict version control
+- Pros: Full control, reproducible configuration, no CLI quirks
+- Cons: Slightly more setup work
+- **Why it's better**: dbt projects are just YAML + SQL files. Manual setup ensures:
+  1. Everything is version-controlled
+  2. Onboarding is explicit (no "magic" from CLI)
+  3. Configuration is team-standardized
+  4. Works consistently across environments
+
+**Pitfall**: `dbt init` can fail with Python version compatibility issues (e.g., dbt-core 1.7.0 on Python 3.10: `KeyboardInterrupt` in dataclasses module). Manual setup avoids this entirely.
+
+### dbt Project Structure (Manual Setup)
+
+Create this structure in your project:
+
+```
+src/etl/dbt_project/
+├── dbt_project.yml           # Project config (required)
+├── models/
+│   ├── staging/              # Raw data → cleaning layer
+│   │   ├── stg_sales_clean.sql
+│   │   ├── stg_stores_clean.sql
+│   │   └── ... (other staging models)
+│   └── marts/                # Staging → analytics layer
+│       ├── fct_sales.sql
+│       └── dim_*.sql
+├── tests/                    # YAML + SQL tests (data quality)
+│   ├── generic/
+│   └── data_quality.yml
+├── macros/                   # Reusable dbt code
+├── seeds/                    # CSV lookup tables
+├── analysis/                 # Ad-hoc analysis files
+└── README.md                 # Project documentation
+
+~/.dbt/
+└── profiles.yml              # Database connections (user-level, shared across projects)
+```
+
+### dbt_project.yml Configuration
+
+```yaml
+# dbt_project.yml
+name: 'lcv_retail_analytics'
+version: '1.0.0'
+config-version: 2
+
+profile: 'lcv_retail_analytics'  # Must match profiles.yml profile name
+
+model-paths: ["models"]
+analysis-paths: ["analysis"]
+test-paths: ["tests"]
+data-paths: ["seeds"]
+macro-paths: ["macros"]
+
+vars:
+  raw_dataset: "retail_analytics_raw"
+  staging_dataset: "retail_analytics_staging"
+  marts_dataset: "retail_analytics_marts"
+
+models:
+  lcv_retail_analytics:
+    staging:
+      materialized: view           # Create as views (cheap, fast)
+      columns:
+        # Optional: Define column-level docs here
+    marts:
+      materialized: table          # Final tables (optimized for queries)
+      indexes:
+        - columns: ['date_key']    # Performance: skip common filters
+          unique: false
+```
+
+**Key principles:**
+- `staging` layer → Views (cheap, no storage overhead)
+- `marts` layer → Tables (for reporting, optimized)
+- Large fact tables (>1M rows) → Materialized table, not view
+- Use `vars:` for dataset names (easy to switch dev→prod)
+
+### profiles.yml Configuration
+
+```yaml
+# ~/.dbt/profiles.yml
+lcv_retail_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account-json
+      project: "lcv-retail-analytics-dw"
+      dataset: "retail_analytics_staging"  # Dev dataset for testing
+      threads: 4                           # Parallel dbt run threads
+      timeout_seconds: 300
+      location: "US"
+      keyfile: "/path/to/lcv-gcp-key.json"
+    prod:
+      type: bigquery
+      method: service-account-json
+      project: "lcv-retail-analytics-dw"
+      dataset: "retail_analytics_marts"    # Prod dataset for analytics
+      threads: 8
+      timeout_seconds: 300
+      location: "US"
+      keyfile: "/path/to/lcv-gcp-key.json"
+```
+
+**Security note**: Keep `.dbt/profiles.yml` in `~/.dbt/` (home directory), NOT in version control. Reference the key file path, don't embed credentials.
+
+### Model Organization Strategy
+
+#### Staging Layer (Cleaning & Validation)
+
+```sql
+-- stg_sales_clean.sql
+-- Purpose: Clean fact_sales from raw, add validation, derive fields
+-- Materialization: Table (1M+ rows = performance)
+
+SELECT
+    sale_id,
+    store_id,
+    product_id,
+    CASE WHEN quantity <= 0 THEN NULL ELSE quantity END AS quantity,
+    CASE WHEN unit_price <= 0 THEN NULL ELSE unit_price END AS unit_price,
+    ROUND(quantity * unit_price, 2) AS total_amount,
+    profit,
+    updated_at,
+FROM `{{ var('raw_dataset') }}.fact_sales`
+WHERE sale_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY sale_id ORDER BY updated_at DESC) = 1
+```
+
+**Staging layer validation patterns:**
+- Null checks: `CASE WHEN column IS NULL THEN NULL ELSE column END`
+- Positive values: `CASE WHEN amount <= 0 THEN NULL ELSE amount END`
+- Deduplication: `QUALIFY ROW_NUMBER() OVER (...) = 1`
+- Text standardization: `UPPER(column)`, `TRIM(column)`
+- Derived fields: Calculate common metrics (profit, total_amount, etc.)
+
+#### Marts Layer (Analytics Ready)
+
+```sql
+-- fct_sales.sql
+-- Purpose: Final fact table for reporting (optimized for queries)
+-- Materialization: Table
+-- Partitioning: By date (monthly)
+
+SELECT
+    stg.sale_id,
+    stg.store_id,
+    stg.product_id,
+    stg.quantity,
+    stg.total_amount,
+    stg.profit,
+    DATE_TRUNC(stg.date, MONTH) AS month_partition,
+FROM {{ ref('stg_sales_clean') }} stg
+WHERE stg.sale_id IS NOT NULL
+```
+
+**Key dbt functions:**
+- `{{ ref('table_name') }}` — References another model (creates lineage)
+- `{{ var('variable_name') }}` — Uses dbt variables (defined in dbt_project.yml)
+- `{{ execute }}` — Executes Python within SQL (advanced)
+
+### Materialization Strategy
+
+| Layer | Type | When | Example |
+|-------|------|------|---------|
+| Staging | VIEW | Always <1M rows, frequently updated | Clean raw tables |
+| Marts | TABLE | >1M rows, used for reporting | Final fact tables |
+| Intermediate | EPHEMERAL | Never queried directly | Re-used calculations |
+
+```yaml
+models:
+  lcv_retail_analytics:
+    staging:
+      materialized: view         # Free, always fresh (recomputes on each query)
+    marts:
+      materialized: table        # Storage cost, but query-optimized
+    intermediate:
+      materialized: ephemeral    # No storage, inlined into dependent models
+```
+
+### Data Quality Tests (dbt Tests)
+
+```yaml
+# tests/data_quality.yml
+version: 2
+
+models:
+  - name: stg_sales_clean
+    columns:
+      - name: sale_id
+        tests:
+          - unique
+          - not_null
+      - name: quantity
+        tests:
+          - not_null
+          - dbt_utils.accepted_values:
+              values: [1, 2, 3, 4, 5]  # Custom validation
+      - name: total_amount
+        tests:
+          - relationships:  # Foreign key check
+              to: ref('dim_date')
+              field: date_key
+```
+
+**Run tests:**
+```bash
+dbt test                    # Run all tests
+dbt test -s stg_sales      # Run tests for specific model
+dbt test --select tag:post_hook  # Run tests with tag
+```
+
+### Common dbt Workflows
+
+```bash
+# Development workflow
+dbt run                     # Transform all models
+dbt run -s stg_sales       # Transform specific model
+dbt test                    # Validate data quality
+dbt docs generate          # Create documentation site
+dbt docs serve             # View docs at localhost:8000
+
+# Version control workflow
+git add models/ tests/ dbt_project.yml profiles.yml
+git commit -m "feat: add staging models with validation"
+
+# Production workflow
+dbt run --target prod      # Run against prod dataset
+dbt snapshot               # Track slowly changing dimensions
+dbt run --models state:modified+  # Only modified + downstream
+```
+
+### Debugging Common Issues
+
+| Issue | Root Cause | Solution |
+|-------|-----------|----------|
+| `KeyboardInterrupt` on `dbt init` | Python 3.10 compatibility | Use manual setup (this guide) |
+| `dbt: command not found` | Not in PATH, venv not active | `source venv/bin/activate` |
+| `Profile not found` | profiles.yml missing or misnamed | Check `~/.dbt/profiles.yml` exists |
+| Model fails to run | Missing dependencies or invalid SQL | Check `dbt parse` output, look at dbt logs |
+| Tests failing | Data quality issue, not code issue | Good! Run `dbt test -d` for detailed failure |
+
+### dbt + BigQuery Specifics
+
+- **Method**: Use service account JSON (`method: service-account-json` in profiles.yml)
+- **Threads**: Set to 4-8 (BigQuery can handle parallel queries)
+- **Location**: Specify `location: US` if all datasets in same region (cheaper queries)
+- **Incremental**: For large tables, use incremental materializations (only load new data)
+
+```sql
+-- Incremental model example
+{{ config(materialized='incremental') }}
+
+SELECT ... FROM raw_table
+WHERE 1=1
+{% if execute %}
+  AND updated_at > (SELECT MAX(updated_at) FROM {{ this }})
+{% endif %}
+```
+
+---
+
 ## 🧠 Mental Checklist Before Pushing
 
 ```
