@@ -1069,6 +1069,162 @@ load_job.result()  # Wait for completion with .result()
 
 ## 🔄 dbt (Data Build Tool) Best Practices
 
+### What dbt Accomplishes: Before and After
+
+**The Data Pipeline Without dbt:**
+```
+PostgreSQL (OLTP)
+    ↓ [Manual Python script: postgres_to_gcs.py]
+GCS Parquet Files (~27 MB)
+    ↓ [Manual Python script: gcs_to_bigquery.py]
+BigQuery Raw Dataset (1.01M records, as-is)
+    ↓ [???]
+    ↓ Ad-hoc SQL scripts scattered across notebooks, email attachments, local files?
+    ↓ No version control, no tests, no documentation
+    ↓ "I think this is the sales table... someone updated it last month?"
+Analytics (Hope for the best 🤞)
+```
+
+**The Data Pipeline With dbt:**
+```
+PostgreSQL (OLTP)
+    ↓ [postgres_to_gcs.py: Extract to Parquet]
+GCS Parquet Files
+    ↓ [gcs_to_bigquery.py: Load to BigQuery raw]
+BigQuery Raw Dataset
+    ↓ [dbt run: Execute models in version control]
+    ├─ Staging models (stg_sales_clean, stg_stores_clean, ...)
+    │  • Null validation, deduplication, derived fields
+    │  • Automatically tested with dbt tests
+    │  • Documented with descriptions
+    ├─ Mart models (fct_sales, dim_date, ...)
+    │  • Clean analytics layer
+    │  • Performance-optimized (Tables with clustering)
+    │  • Tested for data quality
+    └─ Full lineage tracked (know where each column came from)
+Analytics (Confident in data quality ✅)
+```
+
+#### Analogy 1: Restaurant Kitchen
+
+**Without dbt:**
+- Receipt comes in (Parquet from GCS)
+- Multiple chefs write ingredients on napkins (ad-hoc SQL)
+- No recipe documented
+- Each chef does plating differently
+- Quality varies day to day
+- Health inspector comes: "What's in this dish?" Nobody knows.
+
+**With dbt:**
+- Receipt comes in (Parquet from GCS)
+- **Head chef** (dbt_project.yml) defines the recipe (transformation steps)
+- Each **station** (staging/marts models) has a specific job: prep, cook, plate
+- **Quality control** (dbt tests): weight ingredients, check temps, verify plating
+- **Documentation** (columns/descriptions): know what goes in every dish
+- **Version control** (git): any recipe change is tracked, can roll back
+- Health inspector comes: "This is exactly what it says on the menu, every time."
+
+#### Analogy 2: Software Version Control for Data
+
+**Without dbt:**
+- SQL transformations are like code before Git
+- No version history: Who changed what and when?
+- Nobody knows if this query is deprecated or production-critical
+- Manual copy-paste errors
+- Testing is: "Run it and hope"
+
+**With dbt:**
+- SQL in `models/` are just `.sql` files: **Version control with git**
+- Each model is in git (commit history, blame attribution)
+- **Dependent models are auto-updated**: Change one model, downstream models recompute
+- **Tests prevent regressions**: dbt tests catch breaking changes
+- **Reproducibility**: Same git commit = same transformation output, always
+
+#### Analogy 3: Construction Blueprint
+
+**Without dbt:**
+- Raw materials arrive (Parquet)
+- Builders improvise with no blueprint
+- House looks different each time
+- When foundation cracks, nobody knows why
+- Adding a room requires rebuilding everything
+
+**With dbt:**
+- Raw materials arrive (Parquet)
+- **Blueprint** (dbt_project.yml + models): Clear plan
+- **Staging** (Framing + electrical): Raw materials → standardized, validated intermediate
+- **Marts** (Finished walls + flooring): Staging → beautiful, ready for occupants (analysts)
+- **Quality inspection** (dbt tests): Every room meets code
+- **Permits** (git commits): Every change documented
+- **Maintenance** (SQL updates): Easy to rebuild a room without affecting others
+
+---
+
+### Why dbt is Essential with Real Data (Not Just Synthetic)
+
+**Our Project Today: Synthetic Data**
+- ✅ Clean by design (no missing values, perfect format)
+- ✅ No duplicates (generated uniqueness built-in)
+- ✅ No schema surprises (controlled data generation)
+- ✅ dbt is "nice to have" (testing validates the test data)
+
+**Real-World Data Tomorrow:**
+- ❌ Missing values in customer names (null handling required)
+- ❌ Duplicate transaction IDs from system bugs (deduplication with `QUALIFY ROW_NUMBER`)
+- ❌ Negative prices from refunds (validation: `CASE WHEN price < 0 THEN NULL`)
+- ❌ Future dates from data entry errors (temporal validation)
+- ❌ Orphaned foreign keys (customers deleted, sales remain)
+- ❌ Schema changes mid-year (new columns appear without warning)
+
+**Why dbt becomes critical with real data:**
+
+| Problem | Without dbt | With dbt |
+|---------|------------|---------|
+| **Duplicate transactions** | Run SQL, update manually, hope you caught all cases | `dbt run` auto-deduplicates, `dbt test` verifies |
+| **Missing customer names** | Check Excel, update in BigQuery, lose audit trail | `stg_customer.sql` handles nulls, git shows when logic changed |
+| **Negative prices** | Someone notices wrong revenue report in week 4 | `dbt test` catches in hour 1: "price must be > 0" |
+| **New phone column appears** | Where do we add this? Which models? | Add to `stg_customer.sql`, `dbt run` updates all downstream |
+| **Why does Q3 Revenue look wrong?** | "Uhhh, either the load failed or we changed something?" | Git: commit history of every transformation change |
+| **Can we trust this number?** | "I ran this query last month, probably?" | `dbt test` proves it: unique transactions, no nulls, data quality assertions |
+
+**Real Data Issues dbt Solves:**
+1. **Testing** — Catch data quality issues before reporting (not after)
+2. **Lineage** — See exactly which raw columns → which analytics columns
+3. **Documentation** — Why did we null out certain prices? (Commit message + `.sql` comments)
+4. **Reproducibility** — Same data, same dbt version = identical results
+5. **Maintenance** — Update cleaning logic in one place (stg_sales_clean.sql), all dependent models rebuild
+6. **Debugging** — Data looks wrong? Check git history, see what changed
+
+**Use Case: A Bug in Real Data**
+
+Week 6, an analyst reports: *"Revenue in March looks 20% high."*
+
+**Without dbt:**
+- "Let me check... not sure which query that was."
+- Manual investigation: open 10 SQL files, check who ran them
+- Uncertainty: "Did we dedup? Did we include refunds? Which refund logic?"
+- Risk: Fix it wrong, break something else
+
+**With dbt:**
+```bash
+# With dbt:
+dbt run --select fct_sales+  # Recompute fact_sales and all upstream
+dbt test --select fct_sales+ # Validate (if data looks good, dbt tests still pass)
+git log models/marts/fct_sales.sql  # See what changed
+# Found it: Commit from Feb 27 added discount logic
+# Revert if needed: git revert <commit>
+# dbt run again to recompute with old logic
+```
+
+Your team knows:
+- ✅ Exactly what transformation logic was used
+- ✅ When it changed
+- ✅ Who changed it (commit author)
+- ✅ What it looked like before (git history)
+- ✅ Immediate reproduction (dbt run)
+
+---
+
 ### Project Initialization: Manual vs `dbt init`
 
 **Scenario**: When should you use `dbt init` vs manual setup?
