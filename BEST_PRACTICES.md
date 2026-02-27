@@ -932,6 +932,141 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ---
 
+## 📊 BigQuery Loading Patterns (GCS → BigQuery)
+
+### Comparing Three Approaches
+
+When loading Parquet files from GCS into BigQuery, you have three options. Here's the comparison:
+
+| Approach | Method | Pros | Cons | Best For |
+|----------|--------|------|------|----------|
+| **Python Script** | `bigquery.Client.load_table_from_uri()` | ✅ Automated, version controlled, error handling, extensible, schedulable | Requires library | **Production pipelines** |
+| **bq CLI** | `bq load --source_format=PARQUET` | ✅ Simple one-liners, easy testing | ❌ Manual per-table, no version control, hard to scale | Ad-hoc exploration |
+| **External Tables** | `CREATE EXTERNAL TABLE ... OPTIONS(format='PARQUET')` | ✅ Fast preview, minimal setup | ❌ Slow queries, repeated GCS scans, not production-ready | Quick data exploration |
+
+**Winner: Python Script** 🏆
+
+### Implementation: Python Script (Recommended)
+
+**Why Python = Production Standard:**
+```
+1. Extract (Python) → GCS Parquet files
+2. Load (Python) → BigQuery native tables ← YOU ARE HERE
+3. Transform (dbt) → Staging/mart models
+4. Schedule → Airflow/Cloud Scheduler runs all three daily
+```
+
+- ✅ **Automated** — Single command loads all tables
+- ✅ **Version controlled** — Code in git, reproducible
+- ✅ **Error handling** — Fail-fast, comprehensive logging
+- ✅ **Orchestration-ready** — Easy to schedule with Airflow, Cloud Scheduler, cron
+- ✅ **Scalable** — Same pattern works for 5 tables or 500
+- ✅ **Maintainable** — Team can understand & modify code
+
+```python
+# Example: Load all Parquet files from GCS to BigQuery
+from google.cloud import bigquery
+from google.oauth2 import service_account
+
+class GCSToBigQueryLoader:
+    def __init__(self, project_id, key_path, bucket, dataset):
+        credentials = service_account.Credentials.from_service_account_file(key_path)
+        self.bq_client = bigquery.Client(project=project_id, credentials=credentials)
+        self.project_id = project_id
+        self.dataset = dataset
+        self.bucket = bucket
+
+    def load_parquet_to_bigquery(self, gcs_uri: str, table_name: str) -> None:
+        """Load single Parquet file from GCS to BigQuery native table."""
+        table_id = f"{self.project_id}.{self.dataset}.{table_name}"
+
+        job_config = bigquery.LoadJobConfig(
+            source_format=bigquery.SourceFormat.PARQUET,
+            autodetect=True,  # Auto-infer schema from Parquet
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,  # Overwrite
+        )
+
+        load_job = self.bq_client.load_table_from_uri(
+            gcs_uri, table_id, job_config=job_config
+        )
+        load_job.result()  # Wait for completion
+
+        table = self.bq_client.get_table(table_id)
+        logger.info(f"[OK] Loaded {table.num_rows} rows into {table_id}")
+
+    def load_all_tables(self, date: str) -> None:
+        """Load all Parquet files from a date into BigQuery."""
+        files = self.list_parquet_files(date)  # e.g., ["dim_store.parquet", ...]
+
+        for file_name in files:
+            table_name = file_name.replace(".parquet", "")
+            gcs_uri = f"gs://{self.bucket}/{date}/{file_name}"
+            self.load_parquet_to_bigquery(gcs_uri, table_name)
+
+# Usage
+with GCSToBigQueryLoader(project_id, key_path, bucket, dataset) as loader:
+    loader.load_all_tables("2026-02-27")  # Loads all tables with one call
+```
+
+**Key features:**
+- ✅ Schema auto-detection from Parquet
+- ✅ `WRITE_TRUNCATE` mode (idempotent: safe to re-run)
+- ✅ Error handling + logging
+- ✅ Works with context managers (automatic cleanup)
+
+### When to Use Each Approach
+
+**Use Python Script if:**
+- ✅ You have 2+ tables to load
+- ✅ You want automated, schedulable pipelines
+- ✅ You need error handling and logging
+- ✅ You value version control & team reproducibility
+
+**Use bq CLI if:**
+- ✅ One-off load (manual, ad-hoc)
+- ✅ Testing a single table
+- ✅ You prefer shell scripts
+
+**Use External Tables if:**
+- ✅ You want to explore data before copying
+- ✅ Cost is not a concern (repeated GCS scans)
+- ✅ Data changes frequently and you don't want to copy
+
+### BigQuery Load Configuration Best Practices
+
+```python
+job_config = bigquery.LoadJobConfig(
+    # Schema handling
+    source_format=bigquery.SourceFormat.PARQUET,
+    autodetect=True,  # Let BigQuery infer schema from file
+    # OR specify schema explicitly for stricter validation
+
+    # Data deduplication
+    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+    # Options: WRITE_TRUNCATE (overwrite), WRITE_APPEND (insert), WRITE_EMPTY (fail if exists)
+
+    # Timestamps
+    time_partitioning=bigquery.TimePartitioning(type_="DAY", field="date_column"),
+    # Optional: partition large tables by date for faster queries
+
+    # Clustering for performance
+    clustering_fields=["store_id", "product_id"],
+    # Optional: co-locate related rows for query speedup
+)
+
+load_job = self.bq_client.load_table_from_uri(gcs_uri, table_id, job_config=job_config)
+load_job.result()  # Wait for completion with .result()
+```
+
+**Common configurations:**
+- `autodetect=True` — Let BigQuery infer schema (fast setup, less validation)
+- `autodetect=False` + explicit schema — Strict validation (catches schema issues early)
+- `WRITE_TRUNCATE` — Idempotent (safe for nightly re-runs)
+- `time_partitioning` — For large tables (fact tables with dates)
+- `clustering_fields` — Co-locate rows for query performance
+
+---
+
 ## 🧠 Mental Checklist Before Pushing
 
 ```
@@ -963,6 +1098,6 @@ Before each git push, ask yourself:
 
 ---
 
-**Last Updated**: February 26, 2026
+**Last Updated**: February 27, 2026
 **Purpose**: Universal roadmap for professional development practices
-**Latest Additions**: GCP/BigQuery setup, credentials management, ETL pipeline patterns, context managers
+**Latest Additions**: GCP/BigQuery setup, credentials management, ETL pipeline patterns, BigQuery loading patterns (Python vs CLI vs External Tables)
