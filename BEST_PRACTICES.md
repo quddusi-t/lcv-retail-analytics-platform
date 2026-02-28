@@ -250,9 +250,15 @@ git push origin feature-branch
 
 ### Code Quality
 - **Use linters and formatters**
-  - Python: `black`, `ruff`, `pylint`
-  - SQL: `sqlfluff`
-  - Use pre-commit hooks to auto-check
+  - Python formatters: `black` (auto-fix code style)
+  - Python linters: `ruff` (detect issues, auto-fix most)
+  - SQL linting: `sqlfluff`
+  - **All run via pre-commit hooks** automatically on every `git commit`
+
+- **Pre-commit hooks prevent common issues**
+  - ✅ **Auto-fix**: black, ruff, trailing-whitespace, end-of-file-fixer (4 hooks fix problems)
+  - ✅ **Detect**: check-yaml, check-merge-conflict (2 hooks catch mistakes before commit)
+  - Result: Cleaner commits, fewer lint errors in CI/CD, consistent codebase
 
 - **Type hints (Python)**
   ```python
@@ -260,19 +266,50 @@ git push origin feature-branch
       ...
   ```
 
-- **Configure pre-commit hooks**
+- **Configure pre-commit hooks** — Run on every commit to catch issues automatically
   ```bash
-  # .pre-commit-config.yaml
+  # .pre-commit-config.yaml (full configuration with all hooks)
   repos:
+    # Code formatter (auto-fixes)
     - repo: https://github.com/psf/black
-      rev: 23.1.0
+      rev: 25.12.0
       hooks:
         - id: black
+          language_version: python3.10
+          # Auto-formats Python code (88 chars/line, consistent style)
+
+    # Linter (auto-fixes)
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.1.0
+      rev: v0.15.1
       hooks:
         - id: ruff
+          args: [--fix]
+          # Fast Python linter (imports, unused vars, style)
+
+    # General file checks
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+        - id: trailing-whitespace
+          # Removes spaces/tabs at end of lines (commit only needed content)
+        - id: end-of-file-fixer
+          # Ensures all files end with exactly one newline (POSIX compliance)
+        - id: check-yaml
+          # Validates YAML syntax (catches malformed .yml files before commit)
+        - id: check-merge-conflict
+          # Detects merge conflict markers (<<<, ===, >>>) left in code
   ```
+
+**Hook Details:**
+
+| Hook | Type | Purpose | Example |
+|------|------|---------|---------|
+| **black** | Auto-fix | Format Python code consistently | `x=1+2` → `x = 1 + 2` |
+| **ruff** | Auto-fix | Lint Python (unused imports, style) | `import os  # unused` → removed |
+| **trailing-whitespace** | Auto-fix | Remove spaces at line ends | `"hello "` → `"hello"` |
+| **end-of-file-fixer** | Auto-fix | Ensure newline at EOF | File ends at line 42 → adds `\n` |
+| **check-yaml** | Detect | Validate YAML syntax | `key: [invalid` → fails commit |
+| **check-merge-conflict** | Detect | Find merge markers | `<<<<<<< HEAD` → fails commit |
 
 ### Run Tests Before Committing
 ```bash
