@@ -75,7 +75,330 @@ A comprehensive guide to prevent common mistakes, maintain consistency, and deli
 
 ---
 
-## 💾 Atomic Commits (Most Critical)
+## 🌳 Branching Strategy & Code Review
+
+### Feature Branch Workflow
+
+**Core principle:** Never commit directly to `main`. Every change starts on a feature branch.
+
+```
+main (always deployable) ← never commit directly here
+  ↑
+  └─ feature/rfm-analysis (your work)
+  │  ├─ commit: "feat: add RFM calculation"
+  │  ├─ commit: "test: add RFM unit tests"
+  │  └─ pull request → code review → merge
+  │
+  └─ fix/null-handling
+  │  ├─ commit: "fix: handle null values in ETL"
+  │  └─ pull request → code review → merge
+```
+
+**Why branching matters:**
+- Main always stays clean and deployable
+- Easy to revert bad changes (revert entire branch)
+- Full commit history per feature (bisecting, debugging)
+- Code review before merging (team learning)
+- Parallel work (multiple branches simultaneously)
+
+### Branch Naming Convention
+
+| Type | Pattern | Example | Purpose |
+|------|---------|---------|---------|
+| **Feature** | `feature/short-description` | `feature/customer-segmentation` | New functionality |
+| **Fix** | `fix/short-description` | `fix/null-handling-etl` | Bug fix |
+| **Chore** | `chore/short-description` | `chore/update-dependencies` | Config, cleanup, tooling |
+| **Refactor** | `refactor/short-description` | `refactor/etl-pipeline` | Code restructure (no feature change) |
+| **Docs** | `docs/short-description` | `docs/add-architecture-guide` | Documentation only |
+
+**Naming rules:**
+- Lowercase with hyphens (not underscores or spaces)
+- Descriptive (not `fix/bug` or `feature/stuff`)
+- Start with type prefix (feature/, fix/, chore/, etc.)
+
+### Feature Branch Workflow (Step-by-Step)
+
+```bash
+# Step 1: Create feature branch from main
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
+
+# Step 2: Make changes, commit atomically
+git add src/etl/new_pipeline.py
+git commit -m "feat: implement new ETL pipeline"
+
+# Step 3: Push to GitHub
+git push -u origin feature/your-feature-name
+# Output: "Create a pull request for 'feature/your-feature-name'"
+
+# Step 4: Create Pull Request (PR) on GitHub
+# (See next section for PR details)
+
+# Step 5: After PR is merged, clean up local branch
+git checkout main
+git pull origin main
+git branch -d feature/your-feature-name
+```
+
+### What is a Pull Request (PR)?
+
+**A Pull Request is a formal request to merge your changes into main.**
+
+Think of it like a proposal:
+
+```
+Your Feature Branch:
+  ✅ 3 new commits
+  ✅ All tests passing
+  ✅ Code formatted with black/ruff
+  ✅ Documentation updated
+
+You create a PR saying:
+  "I have 3 new commits. Please review and merge them."
+
+GitHub shows:
+  - What changed (file diffs)
+  - Which tests passed/failed
+  - Code coverage impact
+  - Comment threads for discussion
+
+Reviewers:
+  ✅ Approve & merge
+  ❌ Request changes
+  ❓ Ask questions in comments
+```
+
+### Code Review Process
+
+**How review works (team context):**
+
+```
+Developer A:
+  1. Creates feature/rfm-analysis branch
+  2. Commits 3 changes
+  3. Pushes to GitHub
+  4. Creates Pull Request (PR)
+  5. Requests review from Developer B
+
+Developer B (Reviewer):
+  1. Opens PR on GitHub
+  2. Reads commit messages
+  3. Reviews each file diff
+  4. Checks if tests pass
+  5. Leaves comments/suggestions
+  6. Either:
+     - ✅ "Approved! Looks good." → Merge
+     - 📝 "Please fix formatting in line 42" → Developer A updates
+     - ❌ "Logic looks wrong here..." → Discussion thread
+
+Developer A (After feedback):
+  1. Makes requested changes
+  2. Commits fix: "refactor: address review feedback"
+  3. Pushes to same branch (auto-updates PR)
+  4. Comments: "Done! Check new commit."
+
+Developer B:
+  5. Reviews updated code
+  6. ✅ "Approved!" → Merges PR to main
+
+Result:
+  main now has the feature (with peer review)
+```
+
+### PR Example: Real Conversation
+
+```markdown
+Pull Request: "feat: add RFM segmentation"
+Created by: Developer A
+Base: main ← Target: feature/rfm-analysis
+
+---
+
+Files Changed: 3
+  ✅ models/staging/stg_rfm_clean.sql (+85 lines)
+  ✅ tests/test_rfm_calculation.py (+40 lines)
+  ✅ BEST_PRACTICES.md (+10 lines)
+
+Commits:
+  1. feat: add RFM staging model with deduplication
+  2. test: add RFM calculation unit tests
+  3. docs: document RFM business logic
+
+Test Results:
+  ✅ All 42 tests pass
+  ✅ Code coverage: 87% (was 85%)
+  ✅ Linting: 0 errors
+
+---
+
+REVIEW THREAD:
+
+🔍 Reviewer (Developer B):
+  "Nice! I have a couple questions:
+
+  Line 42 in stg_rfm_clean.sql:
+  ```sql
+  CASE WHEN amount < 0 THEN NULL ELSE amount END
+  ```
+  Should we round to 2 decimals here? Or in marts layer?"
+
+💬 Author (Developer A):
+  "Good catch! Actually, I think rounding belongs in marts
+  (final layer), not staging. Staging should just validate.
+  What do you think?"
+
+💬 Reviewer (Developer B):
+  "Makes sense. Keep it in marts. Also, can you add a comment
+  explaining why we null out negative amounts? For future devs?"
+
+✏️ Author Updates Code:
+  - Adds comment: "Null negative amounts (likely refunds/errors)"
+  - Commits: "refactor: add comment explaining validation logic"
+  - Pushes same branch → PR auto-updates
+
+✅ Reviewer (Developer B):
+  "Perfect! Approved and merged."
+
+Result:
+  Feature merged to main with peer validation
+```
+
+### Solo Developer: Do You Need PRs?
+
+**Short answer:** Not strictly required, but recommended.
+
+**Solo workflow options:**
+
+| Approach | Pros | Cons | When to Use |
+|----------|------|------|-------------|
+| **No PR (direct merge)** | Fastest (skip review) | No self-check, easy mistakes | Emergency hotfixes only |
+| **Self-review PR** | Catches your own mistakes | Takes 5 min extra | Recommended for all work |
+| **No branch (direct commit)** | Absolute fastest | No ability to revert, loses history | ❌ Not recommended |
+
+**Best practice (solo):**
+
+```bash
+# Still branch, still PR, but you review your own code
+git checkout -b feature/new-analysis
+# Make changes, commit, push
+git push -u origin feature/new-analysis
+
+# On GitHub: Create PR (takes 1 min)
+# Review your own code: "Does this fix the problem? Tests pass?"
+# ✅ Approve and merge
+
+# Why bother?
+# - Clear commit history per feature
+# - Can revert entire feature if needed
+# - Easy to add team members later (they already have PR workflow)
+# - Self-review catches ~30% of your own mistakes
+```
+
+### PR Best Practices
+
+#### Writing a Good PR Description
+
+```markdown
+# PR Title (Short, descriptive)
+feat: add RFM segmentation for customer analysis
+
+## Description
+Implements Recency, Frequency, Monetary (RFM) segmentation
+to identify high-value customers for targeted campaigns.
+
+## What Changed
+- Added staging model: stg_rfm_clean.sql
+- Calculates RFM scores using 90-day lookback
+- Includes null handling for edge cases
+
+## Testing
+- Unit tests: 8 new tests, all passing
+- Manual test: Validated against 1M synthetic records
+- Performance: Query completes in <2 seconds
+
+## Related Issues
+Fixes #42 (Customer Segmentation)
+
+## Checklist
+- [x] Tests added/updated
+- [x] Documentation updated
+- [x] No hardcoded secrets
+- [x] Linting passes (black, ruff)
+```
+
+**Why good descriptions help:**
+- Reviewers understand context
+- Future you knows why change was made
+- Easy bisecting (git log --oneline shows descriptions)
+- Audit trail for compliance
+
+#### How to Request Review
+
+```bash
+# On GitHub, comment:
+@Developer-B - could you review this when you get a chance?
+
+# Or assign directly:
+GitHub UI → Assignees → Select reviewer
+
+# Reviewer gets notification → Reviews → Comments
+```
+
+#### Resolving Review Feedback
+
+```bash
+# Reviewer comments: "Fix formatting on line 42"
+
+# You make the fix locally
+git add file.py
+git commit -m "refactor: address review feedback from @Developer-B"
+git push  # Same branch (auto-updates PR)
+
+# Comment in PR thread:
+"Done! Check commit abc123"
+
+# Reviewer re-checks
+❌ Approve again if needed
+✅ Merge to main
+```
+
+#### Never Force-Push to Main
+
+```bash
+# ❌ BAD (never do this)
+git push --force-push origin main
+# This DESTROYS history, breaks teammates' work
+
+# ❌ BAD (don't rewrite shared branches)
+git rebase -i origin/main
+
+# ✅ GOOD (safe for your feature branch)
+git rebase -i origin/main  # On feature branch only
+git push --force-push origin feature/your-feature
+```
+
+### When to Bypass PR (Solo Developer)
+
+Only in these cases:
+
+```bash
+# Emergency production hotfix (2am)
+#   → Branch, fix fast, merge directly OR merge with --no-verify
+
+# Documentation typo ("s/recieved/received/")
+#   → Can direct commit or quick PR
+
+# Config file that won't affect code
+#   → Can merge directly (already tested by hooks)
+
+# Everything else
+#   → Create PR, even if you review it yourself
+```
+
+---
+
+## 💾 Atomic Commits (Review Reminder)
 
 ### Commit Philosophy
 **One logical change = One commit. Never mix multiple features/fixes in a single commit.**
