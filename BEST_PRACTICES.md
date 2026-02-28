@@ -440,29 +440,7 @@ git commit -m "add RFM, fix bugs, update docs, and optimize queries"
 git commit -m "wip"
 ```
 
-### Before Every Commit
-- **Review what you're committing** — `git diff` before staging
-- **Test the code** — Run tests/linter/type checker locally
-- **Write a meaningful message** — Explain WHY, not WHAT
-- **One feature per commit** — Don't mix concerns
-
-### Commit Workflow
-```bash
-# 1. Check what changed
-git status
-git diff
-
-# 2. Stage only related changes
-git add path/to/related/files
-git add -p  # Interactive staging (stage chunks, not whole files)
-
-# 3. Commit with clear message
-git commit -m "feat: implement user authentication module"
-
-# 4. Verify before push
-git log --oneline -3
-git push origin feature-branch
-```
+> **See [Feature Branch Workflow](#feature-branch-workflow-step-by-step) section for full commit process, pre-commit checklist, and git commands.**
 
 ---
 
