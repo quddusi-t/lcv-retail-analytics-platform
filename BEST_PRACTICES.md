@@ -48,6 +48,25 @@ A comprehensive guide to prevent common mistakes, maintain consistency, and deli
   - Document major dependency versions with inline comments explaining purpose
   - Consider using `uv` (faster, modern alternative to pip)
 
+#### Package Manager Comparison
+
+| Tool | Speed | Best For | Pros | Cons |
+|------|-------|----------|------|------|
+| **pip** | Standard | Simple projects, CI/CD | Ubiquitous, lightweight (30 MB) | No dependency conflict resolution |
+| **uv** | ⚡ 10-100x faster | Modern Python projects | Fast (Rust-based), pip-compatible, single binary | Newer ecosystem, less adoption |
+| **conda** | Slow | Data science, non-Python deps | Handles C/Fortran/system packages | Heavy (~500 MB), slower, overkill for pure Python |
+| **Poetry** | Medium | Complex projects with lock files | Beautiful locks, publish to PyPI, dependency resolution | Slower than uv, steeper learning curve |
+| **pipenv** | Slow | Locked dependencies + virtualenv | Combines venv + lock files | Less maintained, slower than Poetry |
+
+**For this project**: `uv` (already in `pyproject.toml`) — fast, modern, Rust-based, pip-compatible.
+
+**Decision guide:**
+- **MVP / simple project**: pip + `requirements.txt`
+- **Production Python project**: uv + `pyproject.toml` (our choice)
+- **Data science**: conda (includes NumPy, SciPy, Jupyter pre-compiled)
+- **Complex dependencies / publishing to PyPI**: Poetry
+- **Legacy projects**: pipenv (avoid for new projects)
+
 ### Git Configuration
 - **Initialize git repo before writing code**
   - Set up git with atomic commit history discipline
