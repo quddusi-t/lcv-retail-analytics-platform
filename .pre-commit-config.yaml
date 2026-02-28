@@ -18,3 +18,12 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-merge-conflict
+      - id: check-json
+        # Validates JSON syntax (catches errors in .json files)
+      - id: check-toml
+        # Validates TOML syntax (catches errors in pyproject.toml)
+      - id: detect-private-key
+        # 🔒 SECURITY: Prevents committing private keys, passwords, tokens
+      - id: no-commit-to-branch
+        args: ['--branch', 'main']
+        # Prevents accidental commits to main branch (must use PR workflow)
