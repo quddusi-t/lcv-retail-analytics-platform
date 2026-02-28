@@ -1,20 +1,19 @@
 # 🎯 Developer Habits & Best Practices
 
 **Universal roadmap for professional software development.**
-A checklist to prevent common mistakes, maintain consistency, and deliver production-quality code.
+A comprehensive guide to prevent common mistakes, maintain consistency, and deliver production-quality code.
 
 ---
 
 ## 📋 Pre-Project Initialization
 
 ### Environment Management
-- [x] **Create `.env` file immediately** — Store all secrets, API keys, database credentials, tokens
-  - [x] Never commit `.env` to git (excluded in `.gitignore`)
-  - [x] Add `.env` to `.gitignore` (checked on line 2)
-  - [x] Document required env vars in `.env.template` (includes PostgreSQL, GCP, API, dbt config)
-  - **Next step**: Copy `.env.template` to `.env` and fill in actual values
+- **Create `.env` file immediately** — Store all secrets, API keys, database credentials, tokens
+  - Never commit `.env` to git (add to `.gitignore`)
+  - Document required env vars in `.env.template` with clear descriptions
+  - Copy `.env.template` to `.env` locally and fill in actual values
 
-- [x] **Validate required environment variables — Fail Fast**
+- **Validate required environment variables — Fail Fast**
   ```python
   from dotenv import load_dotenv
   import os
@@ -34,28 +33,26 @@ A checklist to prevent common mistakes, maintain consistency, and deliver produc
   - **Example error**: `RuntimeError: Missing required environment variables: POSTGRES_HOST. Please set them in .env or as system environment variables.`
   - **Benefit**: Immediate feedback, saves time debugging
 
-- [x] **Create `.gitignore` before first commit**
-  - [x] Standard ignores: `node_modules/`, `venv/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.egg-info/`
-  - [x] IDE ignores: `.vscode/`, `.idea/`, `.DS_Store`, `*.swp`
-  - [x] Local env: `.env`, `.env.local`, `config.local.yml`
-  - [x] Build artifacts: `dist/`, `build/`, `.coverage/`
+- **Create `.gitignore` before first commit** with these patterns:
+  - Standard ignores: `node_modules/`, `venv/`, `.venv/`, `__pycache__/`, `*.pyc`, `*.egg-info/`
+  - IDE ignores: `.vscode/`, `.idea/`, `.DS_Store`, `*.swp`
+  - Local env: `.env`, `.env.local`, `config.local.yml`
+  - Build artifacts: `dist/`, `build/`, `.coverage/`
 
 ### Virtual Environments
-- [x] **Isolate dependencies** — Use venv/virtualenv/conda for every project
-  - [x] `.venv/` created and activated
-  - [x] Never use system Python
-  - [x] Document setup in README: `python -m venv venv` or `conda create -n project_name`
-- [x] **Pin dependency versions** — Create `requirements.txt` or `pyproject.toml`
-  - [x] `pyproject.toml` configured with uv package manager
-  - [x] Document major versions with comments
-  - Note: Used `uv` (faster, modern alternative to pip)
+- **Isolate dependencies** — Use venv/virtualenv/conda for every project
+  - Never use system Python
+  - Activate virtual environment in all terminals
+  - Document setup in README: `python -m venv venv` or `conda create -n project_name`
+- **Pin dependency versions** — Create `requirements.txt` or `pyproject.toml`
+  - Document major dependency versions with inline comments explaining purpose
+  - Consider using `uv` (faster, modern alternative to pip)
 
 ### Git Configuration
-- [x] **Initialize git repo before writing code**
-  - [x] Git repo initialized with atomic commit history
-  - [x] Pre-commit hooks configured (black, ruff, trailing-whitespace fixes)
-- [x] **Create `.gitattributes`** — Covered in `.gitignore`
-  - Consistent line endings enforced by pre-commit hooks
+- **Initialize git repo before writing code**
+  - Set up git with atomic commit history discipline
+  - Configure pre-commit hooks (black, ruff, trailing-whitespace fixes)
+- **Use `.gitattributes`** for consistent line endings (enforced by pre-commit hooks)
 
 ---
 
@@ -102,10 +99,10 @@ git commit -m "wip"
 ```
 
 ### Before Every Commit
-- [ ] **Review what you're committing** — `git diff` before staging
-- [ ] **Test the code** — Run tests/linter/type checker locally
-- [ ] **Write a meaningful message** — Explain WHY, not WHAT
-- [ ] **One feature per commit** — Don't mix concerns
+- **Review what you're committing** — `git diff` before staging
+- **Test the code** — Run tests/linter/type checker locally
+- **Write a meaningful message** — Explain WHY, not WHAT
+- **One feature per commit** — Don't mix concerns
 
 ### Commit Workflow
 ```bash
@@ -130,7 +127,7 @@ git push origin feature-branch
 ## 🏗️ Code Organization
 
 ### Directory Structure
-- [ ] **Keep source code organized by layer/domain**
+- **Keep source code organized by layer/domain**
   ```
   src/
   ├── analytics/    (business logic, queries)
@@ -140,18 +137,18 @@ git push origin feature-branch
   └── utils/       (shared utilities)
   ```
 
-- [ ] **Separate concerns**
+- **Separate concerns**
   - Data models in one place
   - Business logic in another
   - API endpoints separate from core logic
   - Always follow monorepo or multi-repo strategy consistently
 
 ### File Naming
-- [ ] **Use descriptive, snake_case names** (Python) or camelCase (JS)
+- **Use descriptive, snake_case names** (Python) or camelCase (JS)
   - Good: `seed_synthetic_data.py`, `rfm_segmentation.sql`
   - Bad: `data.py`, `query.sql`, `script1.py`
 
-- [ ] **Group related files**
+- **Group related files**
   - All models together: `models/`, `models/staging/`, `models/marts/`
   - All tests together: `tests/unit/`, `tests/integration/`
   - All configs together: `config/`, `config/dev.yml`, `config/prod.yml`
@@ -161,7 +158,7 @@ git push origin feature-branch
 ## ✍️ Documentation (As You Go)
 
 ### README
-- [ ] **Write README first** — Describes what, why, how
+- **Write README first** — Describes what, why, how
   - Project goal
   - Quick start (4 steps max)
   - Architecture overview
@@ -170,11 +167,11 @@ git push origin feature-branch
   - Example usage
 
 ### Inline Comments
-- [ ] **Comment WHY, not WHAT**
+- **Comment WHY, not WHAT**
   - BAD: `x = x + 1  # increment x`
   - GOOD: `x = x + 1  # offset by 1 to match 1-indexed schema`
 
-- [ ] **Use docstrings for functions/classes**
+- **Use docstrings for functions/classes**
   ```python
   def calculate_rfm_score(customer_id: int, lookback_days: int = 90) -> dict:
       """
@@ -193,19 +190,19 @@ git push origin feature-branch
   ```
 
 ### Data Dictionary
-- [ ] **Document every table, column, and transformation**
+- **Document every table, column, and transformation**
   - Table name, purpose, grain
   - Column name, data type, business meaning, nullable?
   - Example: "customer_id: INT, unique identifier for customer, NOT NULL"
 
 ### Architecture Diagram
-- [ ] **Include data flow diagram**
+- **Include data flow diagram**
   - Sources → ETL → Warehouse → BI/ML
   - Use tools: Mermaid, Lucidchart, Draw.io
   - Update when architecture changes
 
 ### Changelog
-- [ ] **Keep `CHANGELOG.md` or `HISTORY.md`**
+- **Keep `CHANGELOG.md` or `HISTORY.md`**
   - What changed, when, why
   - Format: date, version, breaking changes highlighted
   - Example: "v1.2.0 — 2026-02-19 — Added RFM segmentation, deprecated batch_size parameter"
@@ -215,12 +212,12 @@ git push origin feature-branch
 ## 🧪 Testing & Quality
 
 ### Write Tests
-- [ ] **Test-driven development (TDD) or write tests alongside code**
+- **Test-driven development (TDD) or write tests alongside code**
   - Unit tests: Test individual functions
   - Integration tests: Test features end-to-end
   - Data tests: Validate data quality (dbt tests, SQL checks)
 
-- [ ] **Organize tests to mirror source structure**
+- **Organize tests to mirror source structure**
   ```
   tests/
   ├── unit/
@@ -233,18 +230,18 @@ git push origin feature-branch
   ```
 
 ### Code Quality
-- [ ] **Use linters and formatters**
+- **Use linters and formatters**
   - Python: `black`, `ruff`, `pylint`
   - SQL: `sqlfluff`
   - Use pre-commit hooks to auto-check
 
-- [ ] **Type hints (Python)**
+- **Type hints (Python)**
   ```python
   def load_data(path: str, limit: int = None) -> pd.DataFrame:
       ...
   ```
 
-- [ ] **Configure pre-commit hooks**
+- **Configure pre-commit hooks**
   ```bash
   # .pre-commit-config.yaml
   repos:
@@ -270,7 +267,7 @@ python -m ruff check src/
 ## 🔐 Secrets & Configuration
 
 ### Environment Variables
-- [ ] **Use `.env` for local development**
+- **Use `.env` for local development**
   ```bash
   DATABASE_URL=postgresql://user:password@localhost/dbname
   GCP_PROJECT_ID=my-gcp-project
@@ -278,7 +275,7 @@ python -m ruff check src/
   ENVIRONMENT=development
   ```
 
-- [ ] **Create `.env.example` or `ENV_TEMPLATE.md`**
+- **Create `.env.example` or `ENV_TEMPLATE.md`**
   ```bash
   # .env.example
   DATABASE_URL=postgresql://user:password@host/dbname
@@ -286,18 +283,18 @@ python -m ruff check src/
   API_KEY=your-api-key
   ```
 
-- [ ] **Never hardcode secrets**
+- **Never hardcode secrets**
   - Load from environment: `os.getenv("DATABASE_URL")`
   - Use config management tools for production
 
 ### CI/CD Secrets
-- [ ] **Use GitHub Secrets, GitLab CI Variables, or platform equivalents**
+- **Use GitHub Secrets, GitLab CI Variables, or platform equivalents**
   - Store in secure vault
   - Rotate regularly
   - Document what each secret is used for
 
 ### Domain Constants & Business Rules
-- [ ] **Separate domain constants from configuration**
+- **Separate domain constants from configuration**
   ```python
   # ✅ GOOD: Keep small, stable constants in code
   REGIONS = ["North", "South", "East", "West"]
@@ -308,29 +305,29 @@ python -m ruff check src/
   NUM_PRODUCTS = int(os.getenv("NUM_PRODUCTS", 500))
   ```
 
-- [ ] **Move to external config (YAML/JSON) when:**
+- **Move to external config (YAML/JSON) when:**
   - Business rules change frequently (no code deploy needed)
   - Supporting multiple environments with different constants
   - Number of constants grows significantly (50+ items)
   - International expansion requires regional customization
 
-- [ ] **Current approach is pragmatic for MVP:**
-  - Code constants work fine for stable, small datasets
+- **Consider pragmatic approach for MVP:**
+  - Code constants work well for stable, small datasets
   - Easy to version control and review
-  - Upgrade to external config in Week 3-4 if needed
+  - Upgrade to external config when requirements grow (Week 3-4+)
 
 ---
 
 ## 📦 Dependency Management
 
 ### Track Dependencies
-- [ ] **Maintain single source of truth for dependencies**
+- **Maintain single source of truth for dependencies**
   - `requirements.txt` (Python)
   - `pyproject.toml` + `poetry.lock` (Python with Poetry)
   - `package.json` + `package-lock.json` (Node.js)
   - `Gemfile` + `Gemfile.lock` (Ruby)
 
-- [ ] **Document why each dependency exists**
+- **Document why each dependency exists**
   ```python
   # requirements.txt
   pandas==1.5.3        # Data manipulation
@@ -339,13 +336,13 @@ python -m ruff check src/
   ```
 
 ### Update Dependencies Safely
-- [ ] **Check for breaking changes before updating**
+- **Check for breaking changes before updating**
   ```bash
   pip list --outdated
   pip install --upgrade package_name --dry-run
   ```
 
-- [ ] **Test after updating dependencies**
+- **Test after updating dependencies**
   - Run full test suite
   - Check for compatibility issues
 
@@ -354,7 +351,7 @@ python -m ruff check src/
 ## 🚀 Deployment & DevOps
 
 ### Docker (if applicable)
-- [ ] **Use `.dockerignore`** — Similar to `.gitignore`
+- **Use `.dockerignore`** — Similar to `.gitignore`
   ```
   .git
   .gitignore
@@ -365,24 +362,24 @@ python -m ruff check src/
   *.pyc
   ```
 
-- [ ] **Dockerfile best practices**
+- **Dockerfile best practices**
   - Use specific base image tags (not `latest`)
   - Pin RUN command package versions
   - Multi-stage builds for smaller images
   - `FROM python:3.11-slim` not `FROM python:latest`
 
 ### CI/CD Pipeline
-- [ ] **Automate tests on every push**
+- **Automate tests on every push**
   - GitHub Actions, GitLab CI, Jenkins, etc.
   - Run: tests, linting, type checking, security scans
 
-- [ ] **Automate deployments**
+- **Automate deployments**
   - Dev: Auto-deploy on main
   - Staging: Manual or schedule-based
   - Production: Manual approval required
 
 ### Monitoring & Logging
-- [x] **Add structured logging with rotation**
+- **Add structured logging with rotation**
   ```python
   import logging
   from logging.handlers import RotatingFileHandler
@@ -404,7 +401,7 @@ python -m ruff check src/
   - **Why rotating?** Prevents unbounded log file growth; keeps last 3 rotations (15MB max)
   - **Console + File**: Immediate visibility during dev, permanent record for debugging
 
-- [x] **Suppress noisy third-party logs**
+- **Suppress noisy third-party logs**
   ```python
   # Reduce verbosity from chatty libraries (psycopg2, urllib3, etc.)
   logging.getLogger("psycopg2").setLevel(logging.WARNING)
@@ -413,18 +410,18 @@ python -m ruff check src/
   - **Why?** Database drivers log internal protocol; clutters your application logs
   - **Result**: Only see YOUR events, not driver noise
 
-- [ ] **Avoid emojis in log messages and scripts**
+- **Avoid emojis in log messages and scripts**
   - ❌ BAD: `logger.info("✅ Data loaded successfully")`
   - ✅ GOOD: `logger.info("[OK] Data loaded successfully")`
   - **Reason**: Emojis cause encoding issues on Windows terminals (charmap codec errors), CI/CD systems, and log aggregation pipelines that expect ASCII-only output. Use `[OK]`, `[ERROR]`, `[WARNING]` instead.
 
-- [ ] **Plan for observability at scale** (future enhancement)
+- **Plan for observability at scale** (future enhancement)
   - Current: Text logs to file ✅
   - Next: Structured JSON logging when adding ELK/Datadog (Week 3+)
   - **Why JSON?** Machine-parseable for log aggregation platforms; enables metrics extraction, anomaly detection, automated alerting
   - Tools: `python-json-logger`, Datadog Agent, ELK Stack, Splunk
 
-- [ ] **Monitor in production**
+- **Monitor in production**
   - Track errors, latency, resource usage
   - Set up alerts for failures
   - Log to centralized system (Datadog/ELK) for multi-service visibility
@@ -434,22 +431,22 @@ python -m ruff check src/
 ## 🔄 Code Review
 
 ### Before Merging
-- [ ] **Create pull request (PR) with clear description**
+- **Create pull request (PR) with clear description**
   - What changed and why
   - Link to related issues
   - Screenshots (if UI)
   - Testing instructions
 
-- [ ] **Request code review** — Never merge your own code
+- **Request code review** — Never merge your own code
   - At least 1 other person reviews
   - Address all comments before merging
 
-- [ ] **Ensure CI passes**
+- **Ensure CI passes**
   - All tests pass
   - No linting errors
   - No security warnings
 
-- [ ] **Squash or rebase** (optional)
+- **Squash or rebase** (optional)
   - Keep history clean: `git rebase -i origin/main`
   - Avoid "fix typo" commits in final history
 
@@ -458,46 +455,46 @@ python -m ruff check src/
 ## 🗂️ Project-Specific Habits
 
 ### Data Projects (SQL, dbt, Analytics)
-- [ ] **Version control for SQL**
+- **Version control for SQL**
   - Store all DDL statements in `.sql` files
   - Version your data migrations
   - Use dbt for transformation logic
 
-- [ ] **Test data quality**
+- **Test data quality**
   - Unit tests for transformations
   - Data profiling tests (nulls, duplicates, ranges)
   - Validation queries
 
-- [ ] **Document data lineage**
+- **Document data lineage**
   - Source → raw → staging → marts
   - Add comments in dbt models
   - Link to business glossary
 
 ### ML/AI Projects
-- [ ] **Track training data versions**
+- **Track training data versions**
   - Which dataset was used for training?
   - Random seed for reproducibility
   - Data splits documented
 
-- [ ] **Version models**
+- **Version models**
   - Store models with metadata (date, performance, hyperparams)
   - Use MLflow, DVC, or similar
 
-- [ ] **Document model assumptions**
+- **Document model assumptions**
   - Features used
   - Training period
   - Performance metrics
   - Known limitations
 
 ### Python Projects
-- [x] **Use type hints everywhere**
+- **Use type hints everywhere**
   ```python
   from typing import Optional, List
   def process(data: List[dict], limit: Optional[int] = None) -> dict:
       ...
   ```
 
-- [x] **Use context managers for resource management**
+- **Use context managers for resource management**
   ```python
   # ❌ BAD: Manual resource handling
   connection = create_connection()
@@ -523,7 +520,7 @@ python -m ruff check src/
   - **Benefit**: Guarantees resource cleanup (files, DB connections, locks, etc.)
   - **Example**: `with SyntheticDataGenerator(db_config) as gen: gen.generate_all()`
 
-- [x] **Use custom exceptions for domain errors**
+- **Use custom exceptions for domain errors**
   ```python
   class DataGenerationError(Exception):
       """Raised when synthetic data generation fails."""
@@ -538,7 +535,7 @@ python -m ruff check src/
   ```
   - **Benefit**: Clearer error handling upstream; domains errors distinct from system errors
 
-- [ ] **Use dataclasses or Pydantic for data models**
+- **Use dataclasses or Pydantic for data models**
   ```python
   from dataclasses import dataclass
 
@@ -555,22 +552,22 @@ python -m ruff check src/
 
 Before pushing to production or sharing publicly:
 
-- [ ] All tests pass locally and in CI
-- [ ] Code reviewed by at least one peer
-- [ ] No hardcoded secrets
-- [ ] `.env.example` exists with template
-- [ ] `.gitignore` excludes all sensitive files
-- [ ] README is complete and accurate
-- [ ] CHANGELOG updated
-- [ ] Docstrings added to all functions
-- [ ] Architecture diagram up-to-date
-- [ ] Performance benchmarked (if applicable)
-- [ ] Error handling implemented (no bare `except:`)
-- [ ] Logging added (at DEBUG, INFO, ERROR levels)
-- [ ] Dependencies documented in requirements file
-- [ ] Commit history is clean (meaningful messages, atomic commits)
-- [ ] Database migrations tested (if applicable)
-- [ ] No TODO comments left in code (or tracked in issues)
+- All tests pass locally and in CI
+- Code reviewed by at least one peer
+- No hardcoded secrets
+- `.env.example` exists with template
+- `.gitignore` excludes all sensitive files
+- README is complete and accurate
+- CHANGELOG updated
+- Docstrings added to all functions
+- Architecture diagram up-to-date
+- Performance benchmarked (if applicable)
+- Error handling implemented (no bare `except:`)
+- Logging added (at DEBUG, INFO, ERROR levels)
+- Dependencies documented in requirements file
+- Commit history is clean (meaningful messages, atomic commits)
+- Database migrations tested (if applicable)
+- No TODO comments left in code (or tracked in issues)
 
 ---
 
@@ -665,7 +662,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ### Service Account & Authentication Setup
 
-- [x] **Create GCP Service Account (never use personal account)**
+- **Create GCP Service Account (never use personal account)**
   ```
   GCP Console → Service Accounts → Create Service Account
   - Name: etl-pipeline (descriptive, lowercase)
@@ -676,7 +673,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - **Key file location:** Store in project root: `./gcp-key.json` (add to `.gitignore`)
   - **Never commit key files** — They're authentication tokens equivalent to passwords
 
-- [x] **Store GCP credentials in `.env`**
+- **Store GCP credentials in `.env`**
   ```bash
   # .env (never commit this)
   GCP_PROJECT_ID=lcv-retail-analytics-dw
@@ -693,7 +690,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   BIGQUERY_DATASET=your_dataset_name
   ```
 
-- [x] **Authenticate in Python with service account**
+- **Authenticate in Python with service account**
   ```python
   from google.oauth2 import service_account
   from google.cloud import storage
@@ -716,7 +713,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ### Google Cloud Storage (GCS) Best Practices
 
-- [x] **Organize with date-partitioned folders**
+- **Organize with date-partitioned folders**
   ```
   gs://bucket-name/
   ├── 2026-02-25/
@@ -732,7 +729,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - Enables BigQuery partition pruning (scan only needed dates)
   - Simple data lineage: "which files loaded yesterday?"
 
-- [x] **Use Parquet format with Snappy compression**
+- **Use Parquet format with Snappy compression**
   ```python
   df.to_parquet(
       path,
@@ -745,7 +742,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - **Snappy tradeoff:** ~1.5-2x faster than gzip, ~10-15% larger; good for ETL pipelines
   - **Use gzip instead if:** Storage cost >> compute cost (archive data)
 
-- [x] **Validate file uploads**
+- **Validate file uploads**
   ```python
   blob = bucket.blob(f"{date}/table.parquet")
   blob.upload_from_filename(local_path)
@@ -758,7 +755,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ### BigQuery Best Practices
 
-- [x] **Create datasets with appropriate locations**
+- **Create datasets with appropriate locations**
   ```python
   from google.cloud import bigquery
 
@@ -771,7 +768,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - **Location:** "US" (multi-region) for high availability, "us-east1" if cost is critical
   - **Separate datasets:** `raw` (GCS import), `staging` (dbt), `marts` (analytics)
 
-- [x] **Use External Tables for Parquet in GCS (cheap exploration)**
+- **Use External Tables for Parquet in GCS (cheap exploration)**
   ```sql
   CREATE OR REPLACE EXTERNAL TABLE raw.fact_sales
   OPTIONS (
@@ -785,7 +782,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - **Native table copy:** $0.023/GB first 100GB/month (cheaper for frequent access)
   - **Strategy:** Explore with external → copy to native when stable
 
-- [x] **Load GCS Parquet into native BigQuery table**
+- **Load GCS Parquet into native BigQuery table**
   ```sql
   CREATE OR REPLACE TABLE raw.fact_sales AS
   SELECT * FROM `project.raw.fact_sales_external`;
@@ -794,7 +791,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   - Enables clustering, partitioning, incremental loads
   - ~3-5x faster than external tables for repeated queries
 
-- [x] **Always partition & cluster large tables**
+- **Always partition & cluster large tables**
   ```sql
   CREATE OR REPLACE TABLE marts.fact_sales (
     sale_id INT64,
@@ -812,7 +809,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ### Secrets & Credentials Patterns
 
-- [x] **NEVER hardcode secrets**
+- **NEVER hardcode secrets**
   ```python
   # ❌ BAD
   key_path = "/absolute/path/to/key.json"
@@ -823,12 +820,12 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   password = os.getenv("POSTGRES_PASSWORD")
   ```
 
-- [x] **Rotate credentials periodically**
+- **Rotate credentials periodically**
   - Service account keys: 90-day rotation (automatic alerts in GCP)
   - Database passwords: Every 6 months minimum
   - Check git history: `git log -p | grep -i "password\|key\|secret"` (should be empty)
 
-- [x] **Use `.env` template pattern**
+- **Use `.env` template pattern**
   ```bash
   # .env.template (commit this)
   POSTGRES_HOST=localhost
@@ -843,7 +840,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   GCP_KEY_PATH=./lcv-gcp-key.json
   ```
 
-- [x] **Validate credentials at startup (Fail-Fast)**
+- **Validate credentials at startup (Fail-Fast)**
   ```python
   def validate_gcp_credentials():
       """Validate GCP service account key exists and is readable"""
@@ -865,7 +862,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
 
 ## 🔄 ETL Pipeline Patterns (Extract, Transform, Load)
 
-- [x] **Use context managers for resource cleanup**
+- **Use context managers for resource cleanup**
   ```python
   class DataExtractor:
       def __init__(self, db_config, gcs_credentials):
@@ -891,7 +888,7 @@ cursor.copy_from(csv_buffer, 'sales', columns=['col1', 'col2', ...])
   ```
   - **Why?** Guarantees cleanup even if exception occurs (prevents resource leaks)
 
-- [x] **Implement idempotent pipelines**
+- **Implement idempotent pipelines**
   ```python
   # ✅ If pipeline crashes halfway, re-run produces same result
   # Upload with date-based path (skip if file exists)
