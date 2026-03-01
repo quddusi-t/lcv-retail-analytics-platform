@@ -11,29 +11,33 @@
 SELECT
     product_id,
     product_name,
+    product_code,
     UPPER(category) AS category,
     UPPER(subcategory) AS subcategory,
+    color,
+    size,
+    material,
+    season,
     -- Standardize brand (handle nulls)
     CASE
         WHEN brand IS NULL OR brand = '' THEN 'UNBRANDED'
         ELSE UPPER(brand)
     END AS brand,
-    -- Ensure prices are positive (flag if not)
-    CASE
-        WHEN unit_price <= 0 THEN -1
-        ELSE unit_price
-    END AS unit_price,
     -- Ensure costs are positive
     CASE
-        WHEN cost_price <= 0 THEN -1
-        ELSE cost_price
-    END AS cost_price,
+        WHEN unit_cost <= 0 THEN -1
+        ELSE unit_cost
+    END AS unit_cost,
+    -- Ensure prices are positive
     CASE
-        WHEN is_active IS NULL THEN TRUE
-        ELSE is_active
-    END AS is_active,
+        WHEN list_price <= 0 THEN -1
+        ELSE list_price
+    END AS list_price,
+    status,
     created_at,
-    updated_at
+    updated_at,
+    is_current,
+    scd_start_date
 FROM
     `{{ var('raw_dataset') }}.dim_product`
 WHERE

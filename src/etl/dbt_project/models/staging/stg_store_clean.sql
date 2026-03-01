@@ -11,19 +11,22 @@
 SELECT
     store_id,
     store_name,
+    store_code,
     UPPER(city) AS city,
     UPPER(region) AS region,
-    state,
     country,
+    latitude,
+    longitude,
     -- Standardize store type
     CASE
         WHEN store_type IS NULL THEN 'UNKNOWN'
         ELSE UPPER(store_type)
     END AS store_type,
-    store_size_sqft,
-    manager_name,
-    created_at,
-    updated_at
+    opening_date,
+    closing_date,
+    store_manager,
+    status,
+    square_meters
 FROM
     `{{ var('raw_dataset') }}.dim_store`
 WHERE

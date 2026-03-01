@@ -1,9 +1,10 @@
 -- Staging model for fact_sales fact table
 -- Deduplicates, validates, and joins with dimensions
+-- Materialized as table for performance (1M rows)
 
 {{
     config(
-        materialized='table',  -- Materialized table for performance (1M rows)
+        materialized='table',
         description='Cleaned and deduplicated sales facts with dimension validation'
     )
 }}
@@ -13,7 +14,7 @@ SELECT
     store_id,
     product_id,
     customer_id,
-    date_key,
+    sale_date,
     -- Ensure quantities are positive
     CASE
         WHEN quantity <= 0 THEN NULL
@@ -24,37 +25,30 @@ SELECT
         WHEN unit_price <= 0 THEN NULL
         ELSE unit_price
     END AS unit_price,
-    -- Calculate total sale amount
+    -- Validate total amount
     CASE
-        WHEN quantity > 0 AND unit_price > 0 THEN ROUND(quantity * unit_price, 2)
-        ELSE NULL
+        WHEN total_amount < 0 THEN NULL
+        ELSE total_amount
     END AS total_amount,
-    -- Ensure discount is between 0 and 1
+    -- Discount as percentage (0-100)
     CASE
-        WHEN discount < 0 OR discount > 1 THEN 0
-        ELSE discount
-    END AS discount,
-    -- Calculate amount after discount
+        WHEN discount_pct < 0 OR discount_pct > 100 THEN 0
+        ELSE discount_pct
+    END AS discount_pct,
+    -- Discount amount in dollars
     CASE
-        WHEN total_amount IS NOT NULL THEN ROUND(total_amount * (1 - discount), 2)
-        ELSE NULL
-    END AS amount_after_discount,
-    -- Ensure cost is positive
+        WHEN discount_amount < 0 THEN 0
+        ELSE discount_amount
+    END AS discount_amount,
+    -- Net amount after discount
+    net_amount,
+    -- Cost amount
     CASE
-        WHEN cost_price <= 0 THEN NULL
-        ELSE cost_price
-    END AS cost_price,
-    -- Calculate profit
-    CASE
-        WHEN amount_after_discount IS NOT NULL AND cost_price IS NOT NULL
-        THEN ROUND(amount_after_discount - (cost_price * quantity), 2)
-        ELSE NULL
-    END AS profit,
-    -- Loyalty points (ensure non-negative)
-    CASE
-        WHEN loyalty_points < 0 THEN 0
-        ELSE loyalty_points
-    END AS loyalty_points,
+        WHEN cost_amount < 0 THEN NULL
+        ELSE cost_amount
+    END AS cost_amount,
+    -- Margin/profit
+    margin_amount,
     -- Payment method
     CASE
         WHEN payment_method IS NULL THEN 'UNKNOWN'
@@ -64,11 +58,7 @@ SELECT
     CASE
         WHEN is_return IS NULL THEN FALSE
         ELSE is_return
-    END AS is_return,
-    created_at,
-    updated_at,
-    -- Deduplication: keep latest version
-    ROW_NUMBER() OVER (PARTITION BY sale_id ORDER BY updated_at DESC) AS rn
+    END AS is_return
 FROM
     `{{ var('raw_dataset') }}.fact_sales`
 WHERE
@@ -76,9 +66,6 @@ WHERE
     sale_id IS NOT NULL
     AND store_id IS NOT NULL
     AND product_id IS NOT NULL
-    AND customer_id IS NOT NULL
-    AND date_key IS NOT NULL
-
-QUALIFY rn = 1  -- Keep only latest version of each sale
+    AND sale_date IS NOT NULL
 
 ORDER BY sale_id
