@@ -25,6 +25,11 @@ models:
     staging:
       description: "Staging models from raw BigQuery tables"
       materialized: view
+      +schema: staging
+    marts:
+      description: "Analytics mart tables"
+      materialized: table
+      +schema: marts
 
 vars:
   # Define any variables here

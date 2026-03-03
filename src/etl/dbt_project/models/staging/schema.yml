@@ -6,50 +6,50 @@ models:
     columns:
       - name: sale_id
         description: "Unique sales transaction identifier"
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: store_id
         description: "Store identifier (foreign key)"
-        tests:
+        data_tests:
           - not_null
       - name: product_id
         description: "Product identifier (foreign key)"
-        tests:
+        data_tests:
           - not_null
       - name: customer_id
         description: "Customer identifier (foreign key to loyalty members, nullable for anonymous sales)"
       - name: sale_date
         description: "Date of sale transaction"
-        tests:
+        data_tests:
           - not_null
       - name: quantity
         description: "Units sold (positive only, null for cancelled/invalid)"
-        tests:
+        data_tests:
           - not_null
       - name: unit_price
         description: "Unit price in dollars"
-        tests:
+        data_tests:
           - not_null
       - name: total_amount
         description: "Total sale amount before discount"
-        tests:
+        data_tests:
           - not_null
       - name: discount_pct
         description: "Discount percentage (0-100)"
-        tests:
+        data_tests:
           - not_null
       - name: net_amount
         description: "Amount after discount"
-        tests:
+        data_tests:
           - not_null
       - name: payment_method
         description: "Payment method used"
-        tests:
+        data_tests:
           - not_null
       - name: is_return
         description: "Flag indicating if transaction is a return"
-        tests:
+        data_tests:
           - not_null
 
   - name: stg_customer_clean
@@ -57,16 +57,16 @@ models:
     columns:
       - name: customer_id
         description: "Unique customer identifier"
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: loyalty_member
         description: "Loyalty member status (true/false)"
-        tests:
+        data_tests:
           - not_null
       - name: country
         description: "Customer country"
-        tests:
+        data_tests:
           - not_null
 
   - name: stg_date_clean
@@ -74,12 +74,12 @@ models:
     columns:
       - name: date_id
         description: "Date identifier in YYYYMMDD format"
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: date_value
         description: "Actual date value"
-        tests:
+        data_tests:
           - not_null
 
   - name: stg_product_clean
@@ -87,20 +87,20 @@ models:
     columns:
       - name: product_id
         description: "Unique product identifier"
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: product_name
         description: "Product name"
-        tests:
+        data_tests:
           - not_null
       - name: category
         description: "Product category"
-        tests:
+        data_tests:
           - not_null
       - name: list_price
         description: "List price in dollars"
-        tests:
+        data_tests:
           - not_null
 
   - name: stg_store_clean
@@ -108,18 +108,18 @@ models:
     columns:
       - name: store_id
         description: "Unique store identifier"
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: store_name
         description: "Store name"
-        tests:
+        data_tests:
           - not_null
       - name: region
         description: "Geographic region"
-        tests:
+        data_tests:
           - not_null
       - name: status
         description: "Store operational status"
-        tests:
+        data_tests:
           - not_null
