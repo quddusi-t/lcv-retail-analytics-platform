@@ -57,3 +57,7 @@ logs/
 google-credentials.json
 service-account-key.json
 lcv-gcp-key.json
+# dbt
+src/etl/dbt_project/target/
+src/etl/dbt_project/dbt_packages/
+src/etl/dbt_project/logs/
