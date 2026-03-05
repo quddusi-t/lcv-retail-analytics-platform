@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: fct_product_performance
+    description: "Analytics mart answering: which products drive the most revenue and profit by category? Used for product performance reporting, inventory optimization, and sales trend analysis."
+    columns:
+      - name: product_id
+        description: "Unique product identifier (foreign key)"
+        data_tests:
+          - not_null
+      - name: product_name
+        description: "Product name"
+        data_tests:
+          - not_null
+      - name: category
+        description: "Product category"
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: "Sum of net_amount (revenue after discounts) across all non-return transactions"
+      - name: total_units_sold
+        description: "Total quantity sold across all non-return transactions"
+      - name: total_profit
+        description: "Sum of margin_amount (profit) across all non-return transactions"
+      - name: transaction_count
+        description: "Count of non-return sales transactions for this product"
+
+  - name: fct_customer_lifetime_value
+    description: "Customer segmentation mart answering: who are our best customers? Segments customers by lifetime value, purchase frequency, recency, and loyalty status to support customer retention and upsell strategies."
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier (primary key)"
+        data_tests:
+          - unique
+          - not_null
+      - name: lifetime_value
+        description: "Total net_amount (revenue after discounts) from all non-return purchases"
+      - name: purchase_count
+        description: "Total number of non-return transactions"
+      - name: avg_order_value
+        description: "Average order value: lifetime_value / purchase_count (rounded to 2 decimals)"
+      - name: days_since_last_purchase
+        description: "Days elapsed from last purchase to today (recency metric)"
+      - name: last_purchase_date
+        description: "Date of most recent purchase"
+      - name: rank
+        description: "ROW_NUMBER ranking of customers by lifetime_value DESC (1=top customer)"
+      - name: quartile
+        description: "NTILE(4) quartile ranking (1=top 25%, 4=bottom 25%)"
+      - name: customer_segment
+        description: "Business segment classification: At Risk, VIP Loyal, High Value, Medium Value, Low Value"
+      - name: loyalty_member
+        description: "Whether customer is a loyalty program member (true/false)"
+      - name: _loaded_at
+        description: "Timestamp when this mart was last refreshed (dbt run date)"

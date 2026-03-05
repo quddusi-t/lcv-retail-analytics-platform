@@ -1,3 +1,7 @@
+{{ config(
+    materialized='table',
+) }}
+
 -- CTE to calculate total revenue, total units sold, total profit and count of transactions.
 WITH product_performance AS (
     SELECT
