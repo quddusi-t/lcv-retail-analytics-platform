@@ -827,6 +827,484 @@ python -m ruff check src/
   - Add comments in dbt models
   - Link to business glossary
 
+---
+
+## 🔍 SQL & dbt Best Practices
+
+### SQL Execution Order vs Written Order
+
+**Critical Concept:** SQL statements execute in a different order than they're written.
+
+**Written Order:**
+```sql
+SELECT columns, aggregates
+FROM table
+WHERE conditions
+GROUP BY key
+HAVING aggregate_condition
+ORDER BY sort_column
+```
+
+**Execution Order:**
+```
+1. FROM — Identify source table(s)
+2. WHERE — Filter rows (aggregate functions NOT available here)
+3. GROUP BY — Group remaining rows by key
+4. SELECT — Calculate columns & aggregates (now aggregates exist)
+5. HAVING — Filter groups (only use after GROUP BY)
+6. ORDER BY — Sort results (can reference SELECT aliases)
+```
+
+**Practical Impact:**
+
+| Clause | Available | NOT Available |
+|--------|-----------|---------------|
+| WHERE | Raw columns | Aggregates (SUM, COUNT), aliases |
+| GROUP BY | Raw columns only | Aggregates, aliases |
+| HAVING | Aggregates, GROUP BY columns | Other aliases |
+| ORDER BY | SELECT outputs, aliases | Raw columns |
+
+**Example — What NOT to do:**
+
+```sql
+-- ❌ FAILS: WHERE can't use aggregates
+SELECT product_id, COUNT(*) AS sales_count
+FROM sales
+WHERE COUNT(*) > 5  -- ❌ COUNT(*) doesn't exist yet!
+GROUP BY product_id
+
+-- ✅ CORRECT: Use HAVING after GROUP BY
+SELECT product_id, COUNT(*) AS sales_count
+FROM sales
+GROUP BY product_id
+HAVING COUNT(*) > 5  -- ✅ Now COUNT(*) exists
+```
+
+---
+
+### COUNT(*) vs COUNT(column_name)
+
+**Key Difference:**
+
+| Function | Counts | Skips NULLs? |
+|----------|--------|---|
+| `COUNT(*)` | All rows in group | No (counts everything) |
+| `COUNT(column)` | Non-NULL values in column | Yes (skips NULLs) |
+| `COUNT(DISTINCT column)` | Unique non-NULL values | Yes |
+
+**Concrete Example with Data:**
+
+Raw table:
+```
+sales_id  product_id  net_amount
+1         101         50
+2         101         NULL
+3         101         100
+4         102         200
+5         102         NULL
+```
+
+Query results:
+```sql
+SELECT
+    product_id,
+    COUNT(*) AS count_all_rows,
+    COUNT(net_amount) AS count_net_amount,
+    COUNT(DISTINCT product_id) AS distinct_products
+FROM sales
+GROUP BY product_id
+```
+
+Results:
+```
+product_id  count_all_rows  count_net_amount  distinct_products
+101         3               2                 1
+102         2               1                 1
+```
+
+**When to use each:**
+- `COUNT(*)` — "How many transactions per product?" (all rows matter)
+- `COUNT(column)` — "How many customers have email on file?" (NULL = no email)
+- `COUNT(DISTINCT key)` — "How many unique customers bought?" (duplicates irrelevant)
+
+---
+
+### JOIN Types: LEFT, INNER, RIGHT, FULL OUTER
+
+**Pattern:**
+```sql
+FROM source_table st
+[TYPE] JOIN dimension_table dt ON st.key = dt.key
+```
+
+| Type | Result | When Used |
+|------|--------|-----------|
+| **LEFT** | Keep all from LEFT table, add matches from RIGHT | Staging → Dimension (catch missing data) |
+| **INNER** | Keep only matching rows from BOTH | Mart → Mart (assume upstream clean) |
+| **RIGHT** | Keep all from RIGHT table, add matches from LEFT | Rare; flip tables and use LEFT instead |
+| **FULL** | Keep all rows from BOTH; row appears if in either | Fact reconciliation, outer joins |
+
+**Visual Example:**
+
+```
+Fact Table (LEFT):          Dimension Table (RIGHT):
+product_id  revenue         product_id  name
+101         $1000           101         Widget
+102         $2000           103         Gadget
+104         $500            (103 not in fact)
+(104 not in dimension)
+```
+
+Results:
+```
+LEFT JOIN:           INNER JOIN:          FULL OUTER JOIN:
+101 $1000 Widget     101 $1000 Widget     101 $1000 Widget
+102 $2000 NULL       102 $2000 NULL       102 $2000 NULL
+104 $500 NULL                             103 NULL Gadget
+                                          104 $500 NULL
+```
+
+**In Analytics:**
+- **Staging → Dimension (LEFT):** Catch data quality issues (NULL dimension columns = missing dimension record)
+- **Mart → Mart (INNER):** Assume upstream cleaned; only analyze valid combinations
+
+---
+
+### CTE (WITH Clause) Pattern: Three-Layer Architecture
+
+**Best Practice Structure:**
+
+```sql
+-- CTE 1: AGGREGATION
+-- Raw data → grouped entity level
+WITH entity_aggregates AS (
+    SELECT
+        entity_id,
+        SUM(metric1) AS total_metric1,
+        COUNT(*) AS transaction_count
+    FROM raw_table
+    WHERE is_valid = TRUE
+    GROUP BY entity_id
+)
+
+-- CTE 2: CALCULATION
+-- Aggregated data → add rankings/tiers
+, entity_ranked AS (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (ORDER BY total_metric1 DESC) AS rank,
+        NTILE(4) OVER (ORDER BY total_metric1 DESC) AS quartile
+    FROM entity_aggregates
+)
+
+-- Main SELECT: ENRICH + SEGMENT
+-- Final output with business logic
+SELECT
+    er.entity_id,
+    ed.entity_name,
+    er.total_metric1,
+    er.rank,
+    CASE
+        WHEN er.quartile = 1 THEN 'Premium'
+        WHEN er.quartile = 2 THEN 'Standard'
+        ELSE 'Basic'
+    END AS customer_segment
+FROM entity_ranked er
+LEFT JOIN entity_dimension ed ON er.entity_id = ed.entity_id
+```
+
+**Why This Works:**
+- **Layer 1:** Reduces 1M transactions → 10K entities (GROUP BY)
+- **Layer 2:** Adds metrics on those 10K rows (window functions, no GROUP BY = keeps row count)
+- **Layer 3:** Enriches with business context (JOINs dimensions, applies CASE logic)
+
+Each layer has a clear purpose; easy to debug/reuse/modify.
+
+---
+
+### Window Functions vs Aggregate Functions
+
+**Critical Difference:**
+
+| Type | Behavior | ROW COUNT | Use Case |
+|------|----------|-----------|----------|
+| **Aggregate** (SUM, COUNT, AVG) | Reduces rows with GROUP BY | Fewer rows | Summary metrics |
+| **Window** (ROW_NUMBER, NTILE, RANK) | Adds columns without GROUP BY | SAME rows | Rankings, tiers, running totals |
+
+**Example:**
+
+Data:
+```
+customer_id  lifetime_value
+5            $5000
+12           $4200
+8            $3800
+```
+
+Aggregate approach (reduces rows):
+```sql
+SELECT COUNT(*) AS total_customers, AVG(lifetime_value) AS avg_value
+FROM customers
+GROUP BY region
+-- Result: 1 row per region (5000 customers → 50 regions = 50 rows)
+```
+
+Window approach (keeps all rows):
+```sql
+SELECT
+    customer_id,
+    lifetime_value,
+    ROW_NUMBER() OVER (ORDER BY lifetime_value DESC) AS rank,
+    NTILE(4) OVER (ORDER BY lifetime_value DESC) AS quartile
+FROM customers
+-- Result: STILL 5000 rows, now with rank/quartile added
+```
+
+**When to use each:**
+- **Aggregate:** "What's total revenue per product?" → One row per product
+- **Window:** "Rank all products by revenue" → All products listed with ranks
+
+---
+
+### dbt Schema Configuration (Avoid Concatenation Issues)
+
+**The Problem:**
+```yaml
+# profiles.yml
+dev:
+  schema: retail_analytics
+
+# dbt_project.yml
+models:
+  marts:
+    +schema: marts
+
+# Result: retail_analytics + marts = retail_analytics_marts (CONCATENATION!)
+```
+
+**The Solution:**
+Instead of using `+schema` in dbt_project.yml, use `{{ config() }}` blocks in individual models:
+
+```sql
+-- fct_product_performance.sql
+
+{{ config(
+    materialized='table'
+) }}
+
+WITH aggregates AS (
+    ...
+)
+
+SELECT ...
+```
+
+**And in profiles.yml, keep schemas separate:**
+
+```yaml
+dev:
+  schema: retail_analytics_staging  # Base for staging models
+
+prod:
+  schema: retail_analytics_marts    # Different output for prod
+```
+
+**Why This Avoids Concatenation:**
+- `{{ config() }}` overrides per-model, no concatenation
+- profiles.yml determines WHERE (which dataset) models go
+- dbt doesn't try to concatenate base + project settings
+- One source of truth per model
+
+**If You MUST Use +schema, Be Explicit:**
+
+```yaml
+# dbt_project.yml
+models:
+  staging:
+    +schema: stg_staging    # Explicitly set full schema name
+  marts:
+    +schema: retail_marts   # No "retail_" prefix in profile
+```
+
+With profile:
+```yaml
+dev:
+  schema: ""  # Empty! Let dbt_project.yml handle it
+```
+
+Result: No concatenation, explicit schema names.
+
+---
+
+### schema.yml Documentation: One Source of Truth
+
+**Best Practice:**
+- Model descriptions go in **schema.yml** (not config() blocks)
+- Generates dbt documentation site (visible in `dbt docs serve`)
+- Single place to update; feeds documentation + validation
+
+**Structure:**
+
+```yaml
+version: 2
+
+models:
+  - name: fct_customer_lifetime_value
+    description: "Customer segmentation answering: who are our best customers?"
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier"
+        data_tests:
+          - unique
+          - not_null
+      - name: lifetime_value
+        description: "Total revenue (net_amount) from non-return purchases"
+      - name: customer_segment
+        description: "Business segment: At Risk, VIP Loyal, High Value, Medium Value, Low Value"
+```
+
+**View with:**
+```bash
+dbt docs generate  # Creates documentation site
+dbt docs serve     # Open http://localhost:8000 (shows lineage, descriptions, tests)
+```
+
+---
+
+### SELECT * vs SELECT Specific Columns
+
+**When to Use SELECT *:**
+
+```sql
+, customer_ranked AS (
+    SELECT
+        *,  -- ← All 6 columns from CTE 1
+        ROW_NUMBER() OVER (...) AS rank,  -- Add 2 new columns
+        NTILE(4) OVER (...) AS quartile
+    FROM customer_aggregates
+)
+```
+
+**When to use SELECT specific:**
+
+```sql
+, customer_filtered AS (
+    SELECT
+        customer_id,
+        lifetime_value,
+        days_since_purchase
+    FROM customer_ranked
+)
+-- Drop rank, quartile if not needed downstream (performance + clarity)
+```
+
+**Decision Logic:**
+
+| Situation | Approach | Why |
+|-----------|----------|-----|
+| Adding columns to all from previous CTE | SELECT * | Flexibility; simpler code |
+| Dropping many columns | SELECT specific | Reduce data passed; clearer intent |
+| Final output in mart | SELECT specific | Explicit; downstream knows exact columns |
+| Intermediate CTE | SELECT * if adding, SELECT specific if filtering | Pragmatic |
+
+---
+
+### CTE Aliasing (Optional but Recommended)
+
+**Standard (without alias):**
+```sql
+FROM customer_ranked
+```
+
+**With Alias (recommended for multi-CTE queries):**
+```sql
+FROM customer_ranked cr
+LEFT JOIN dimension_table dt ON cr.customer_id = dt.customer_id
+```
+
+**When Alias Helps:**
+- Multiple JOINs (clarifies which table columns come from)
+- Long table names (saves typing)
+- CTEs with similar names (distinguishes context)
+
+**Production Pattern:**
+```sql
+FROM customer_ranked cr           -- "cr" = customer ranked
+LEFT JOIN stg_customer_clean sc   -- "sc" = source customer
+LEFT JOIN stg_date_clean dc       -- "dc" = dimension customer
+ON cr.customer_id = sc.customer_id
+```
+
+Aliases make code scannable; readers immediately know which columns belong to which table.
+
+---
+
+### Configuration Block Best Practices
+
+**Minimal Config (Recommended):**
+
+```sql
+{{ config(
+    materialized='table'
+) }}
+```
+
+Only set what differs from dbt_project.yml defaults. Makes files lighter.
+
+**Common Configs:**
+
+```sql
+-- Table (reusable downstream)
+{{ config(materialized='table') }}
+
+-- View (lightweight, always latest)
+{{ config(materialized='view') }}
+
+-- Ephemeral (only exists in compilation, not in database)
+{{ config(materialized='ephemeral') }}
+```
+
+**NOT needed in config():**
+- ❌ `schema` (use profiles.yml + dbt_project.yml logic)
+- ❌ `description` (use schema.yml)
+- ❌ `tags` (define in schema.yml)
+
+---
+
+### Data Quality Tests in schema.yml
+
+```yaml
+models:
+  - name: fct_product_performance
+    columns:
+      - name: product_id
+        description: "Unique product identifier"
+        data_tests:
+          - unique      # No duplicates
+          - not_null    # Can't be NULL
+      - name: total_revenue
+        description: "Sum of net sales"
+        data_tests:
+          - accepted_values:  # Only positive values
+              values: [0, 1]  # Nonsense example for illustration
+          - dbt_utils.expression_is_true:  # >= 0
+              expression: "> 0"
+```
+
+**Built-in Tests (generic):**
+- `unique` — No duplicates
+- `not_null` — No NULLs
+- `accepted_values` — Column values in list
+- `relationships` — Foreign key exists in other table
+
+**Run tests:**
+```bash
+dbt test  # All tests
+dbt test -s fct_product_performance  # Single model
+```
+
+---
+
 ### ML/AI Projects
 - **Track training data versions**
   - Which dataset was used for training?

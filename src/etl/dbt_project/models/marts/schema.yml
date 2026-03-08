@@ -53,3 +53,43 @@ models:
         description: "Whether customer is a loyalty program member (true/false)"
       - name: _loaded_at
         description: "Timestamp when this mart was last refreshed (dbt run date)"
+
+  - name: fct_regional_sales
+    description: "Regional sales performance mart answering: which regions/stores are performing best/worst? Provides multi-dimensional analysis of sales, units, and profitability by region, store, product category, and month to identify underperforming areas and optimization opportunities."
+    columns:
+      - name: region
+        description: "Geographic region identifier (primary key component)"
+        data_tests:
+          - not_null
+      - name: store_name
+        description: "Store name within region (primary key component)"
+        data_tests:
+          - not_null
+      - name: product_category
+        description: "Product category (primary key component)"
+        data_tests:
+          - not_null
+      - name: year_month
+        description: "Month of the sale (primary key component, formatted as DATE_TRUNC to month level)"
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: "Sum of net_amount (revenue after discounts) for all non-return transactions"
+      - name: total_units_sold
+        description: "Sum of quantity sold across all non-return transactions"
+      - name: total_profit
+        description: "Sum of margin_amount (profit/margin) across all non-return transactions"
+      - name: profit_margin
+        description: "Profit margin percentage: (total_profit / total_revenue) * 100, rounded to 2 decimals. Handles division by zero with NULLIF."
+      - name: avg_transaction_value
+        description: "Average revenue per transaction: total_revenue / transaction_count, rounded to 2 decimals"
+      - name: transaction_count
+        description: "Count of non-return sales transactions in this region/store/category/month combination"
+      - name: rank
+        description: "ROW_NUMBER ranking by total_profit DESC within each region (1=most profitable store in region). Identifies top profit generators per region."
+      - name: quartile
+        description: "NTILE(4) quartile ranking by total_profit DESC within each region. Divides stores into 4 profit tiers (1=top 25%, 4=bottom 25% profitability)."
+      - name: performance_segment
+        description: "Business segment based on profit quartile: Top Performer (Q1), High Performer (Q2), Mid Performer (Q3), Low Performer (Q4). Guides regional focus and improvement priorities."
+      - name: _loaded_at
+        description: "Timestamp when this mart was last refreshed (dbt run date)"
