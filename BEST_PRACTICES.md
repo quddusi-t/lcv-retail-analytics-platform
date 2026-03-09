@@ -831,6 +831,38 @@ python -m ruff check src/
 
 ## 🔍 SQL & dbt Best Practices
 
+### SQL Commands by Skill Tier
+
+**Tier 1 — Fundamentals (required for any query):**
+```sql
+SELECT, FROM, WHERE, GROUP BY, ORDER BY, JOIN, ON, AS, *, LIMIT
+```
+
+**Tier 2 — Analytics & Reporting (used in most queries):**
+```sql
+HAVING, DISTINCT, COUNT, SUM, AVG, MIN, MAX,
+LEFT JOIN, INNER JOIN, RIGHT JOIN, FULL OUTER JOIN,
+CASE WHEN, AND, OR, NOT, NULL, IS NULL,
+IN, BETWEEN, LIKE
+```
+
+**Tier 3 — Advanced Analytics (specialized/optimized queries):**
+```sql
+WITH (CTE), ROW_NUMBER, RANK, DENSE_RANK, NTILE, LAG, LEAD,
+OVER, PARTITION BY, ROWS BETWEEN,
+DATE_TRUNC, EXTRACT, NULLIF, ROUND, COALESCE, CAST,
+UNION, EXCEPT, INTERSECT, SUBQUERY
+```
+
+**Skill Progression:**
+- **Tier 1 mastery**: You can write basic queries (SELECT from one table, filter, sort)
+- **Tier 2 mastery**: You can write analytics queries (aggregations, joins, segmentation with CASE)
+- **Tier 3 mastery**: You can build advanced marts (window functions, CTEs, moving averages, rankings)
+
+**Your Current Level**: Tier 3 — You've used CTEs, window functions (ROW_NUMBER, NTILE), PARTITION BY, and moving windows like `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`.
+
+---
+
 ### SQL Execution Order vs Written Order
 
 **Critical Concept:** SQL statements execute in a different order than they're written.
