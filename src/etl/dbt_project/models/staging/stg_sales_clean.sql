@@ -66,6 +66,7 @@ WHERE
     sale_id IS NOT NULL
     AND store_id IS NOT NULL
     AND product_id IS NOT NULL
+    AND customer_id IS NOT NULL
     AND sale_date IS NOT NULL
 
 ORDER BY sale_id
