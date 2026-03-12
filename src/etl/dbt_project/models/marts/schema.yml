@@ -93,3 +93,46 @@ models:
         description: "Business segment based on profit quartile: Top Performer (Q1), High Performer (Q2), Mid Performer (Q3), Low Performer (Q4). Guides regional focus and improvement priorities."
       - name: _loaded_at
         description: "Timestamp when this mart was last refreshed (dbt run date)"
+
+  - name: fct_daily_sales_trends
+    description: "Daily sales trends and time-series analysis mart answering: what daily sales patterns exist? Which days/weeks are strongest? Provides moving averages, growth metrics, and day-of-week rankings to support forecasting and campaign planning."
+    columns:
+      - name: sale_date
+        description: "Calendar date (primary key - one row per day)"
+        data_tests:
+          - unique
+          - not_null
+      - name: year_quarter
+        description: "Fiscal year and quarter (YYYY-Q# format, e.g., 2024-Q1)"
+      - name: year_month
+        description: "Year and month of the sale (formatted via DATE_TRUNC)"
+      - name: day_of_week
+        description: "Day of week name (Monday, Tuesday, ... Sunday)"
+      - name: is_weekday
+        description: "Boolean flag: TRUE if Monday-Friday, FALSE if weekend"
+      - name: is_holiday
+        description: "Boolean flag: TRUE if date is a holiday (impacts daily patterns)"
+      - name: daily_revenue
+        description: "Total net_amount (revenue after discounts) for the day"
+      - name: daily_units
+        description: "Total quantity sold for the day"
+      - name: daily_profit
+        description: "Total margin_amount (profit) for the day"
+      - name: transaction_count
+        description: "Count of non-return sales transactions for the day"
+      - name: revenue_moving_avg_7day
+        description: "7-day moving average of daily_revenue using LAG window function (ROWS BETWEEN 6 PRECEDING AND CURRENT ROW). Smooths daily noise."
+      - name: revenue_moving_avg_30day
+        description: "30-day moving average of daily_revenue using LAG window function (ROWS BETWEEN 29 PRECEDING AND CURRENT ROW). Shows longer-term trend."
+      - name: revenue_vs_weekly_avg
+        description: "Percentage of daily_revenue compared to 7-day moving average: (daily_revenue / revenue_moving_avg_7day) * 100. >100 = above trend, <100 = below trend."
+      - name: prior_day_revenue
+        description: "Daily revenue from previous day using LAG(1). Used for growth calculation."
+      - name: revenue_growth_pct
+        description: "Day-over-day revenue growth percentage: ((daily_revenue - prior_day_revenue) / prior_day_revenue) * 100. NULL for first day of data."
+      - name: weekday_rank
+        description: "ROW_NUMBER ranking by day_of_week ordered by daily_revenue DESC. Identifies which day-of-week (Mon/Tue/etc.) is strongest."
+      - name: day_type
+        description: "Business classification: Holiday, Weekend, or Weekday. Used to understand different daily patterns."
+      - name: _loaded_at
+        description: "Timestamp when this mart was last refreshed (dbt run date)"
