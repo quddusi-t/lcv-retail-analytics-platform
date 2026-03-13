@@ -430,6 +430,176 @@ Looker Studio (Executive Dashboards)
 
 ---
 
+## Analytics Marts (Layer 3: Consumption Layer)
+
+The **analytics marts** are business-focused tables designed for specific analytical use cases. Built with dbt from staging models, they combine multiple dimensions and pre-calculated metrics for BI consumption.
+
+### Mart 1: `fct_product_performance`
+
+**Business Purpose**: Answer "Which products drive the most revenue and profit by category?"
+
+**Grain**: One row per unique product.
+
+**Volume**: 498 rows (products) × 1 category = 498 rows.
+
+**Key Metrics**:
+- `total_revenue`: SUM(net_amount) across all non-return transactions
+- `total_units_sold`: SUM(quantity) across all non-return transactions
+- `total_profit`: SUM(margin_amount) across all non-return transactions
+- `transaction_count`: COUNT(*) of sales transactions
+
+**Use Cases**:
+- Inventory optimization (identify top/bottom performers)
+- Product mix analysis by category
+- Revenue contribution analysis
+- Promotional impact assessment
+
+---
+
+### Mart 2: `fct_customer_lifetime_value`
+
+**Business Purpose**: Answer "Who are our best customers (high-value, loyal, at-risk)?"
+
+**Grain**: One row per unique customer.
+
+**Volume**: 10,000 rows (active customers).
+
+**Key Metrics**:
+- `lifetime_value`: SUM(net_amount) from all non-return purchases
+- `purchase_count`: COUNT(*) of transactions
+- `avg_order_value`: lifetime_value / purchase_count (rounded to 2 decimals)
+- `days_since_last_purchase`: DATE_DIFF(TODAY, MAX(sale_date))
+- `rank`: ROW_NUMBER() by lifetime_value DESC (1 = top customer)
+- `quartile`: NTILE(4) by lifetime_value DESC (1 = top 25%, 4 = bottom 25%)
+
+**Segmentation** (Priority Order):
+1. **At Risk**: days_since_last_purchase > 180 (inactive 6+ months)
+2. **VIP Loyal**: quartile = 1 AND loyalty_member = TRUE (high value + program member)
+3. **High Value**: quartile = 1
+4. **Medium Value**: quartile = 2
+5. **Low Value**: quartiles 3–4
+
+**Use Cases**:
+- Customer retention programs (target at-risk customers)
+- VIP/loyalty tier management
+- Personalized marketing by segment
+- Customer acquisition cost (CAC) payback analysis
+
+---
+
+### Mart 3: `fct_regional_sales`
+
+**Business Purpose**: Answer "Which regions/stores are performing best/worst? Where should we focus improvement efforts?"
+
+**Grain**: One row per region × store × product_category × month combination.
+
+**Volume**: 3,800 rows.
+
+**Key Metrics**:
+- `total_revenue`: SUM(net_amount) for the dimension combination
+- `total_units_sold`: SUM(quantity)
+- `total_profit`: SUM(margin_amount)
+- `profit_margin`: (total_profit / total_revenue) × 100, rounded to 2 decimals
+- `avg_transaction_value`: total_revenue / transaction_count (revenue per sale)
+- `transaction_count`: COUNT(*) of transactions
+- `rank`: ROW_NUMBER() by total_profit DESC **within each region** (identifies top stores per region)
+- `quartile`: NTILE(4) by total_profit DESC **within each region** (profit-based tiering)
+
+**Performance Segmentation** (by quartile):
+- **Top Performer**: quartile = 1 (top 25% by profitability in region)
+- **High Performer**: quartile = 2
+- **Mid Performer**: quartile = 3
+- **Low Performer**: quartile = 4 (bottom 25%, may need improvement)
+
+**Dimensions**:
+- `region`: Geographic region
+- `store_name`: Specific store within region
+- `product_category`: Product category (Textile, Accessories, Seasonal)
+- `year_month`: Month of sales (TIME_TRUNC to month)
+
+**Use Cases**:
+- Regional performance benchmarking
+- Store-level profitability analysis
+- Category performance by location
+- Resource allocation (where to invest/divest)
+- Competitive analysis (top stores as models for improvement)
+
+---
+
+### Mart 4: `fct_daily_sales_trends`
+
+**Business Purpose**: Answer "What daily sales patterns exist? Which days/weeks are strongest? How should we forecast?"
+
+**Grain**: One row per unique calendar day.
+
+**Volume**: 365 rows (daily data across the full dataset period).
+
+**Key Metrics**:
+- `daily_revenue`: SUM(net_amount) for the day
+- `daily_units`: SUM(quantity) for the day
+- `daily_profit`: SUM(margin_amount) for the day
+- `transaction_count`: COUNT(*) of sales transactions
+- `revenue_moving_avg_7day`: AVG(daily_revenue) over prior 7 days (including current), calculated with `ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`
+- `revenue_moving_avg_30day`: AVG(daily_revenue) over prior 30 days (including current)
+- `revenue_vs_weekly_avg`: (daily_revenue / revenue_moving_avg_7day) × 100 (% of week average)
+- `prior_day_revenue`: LAG(daily_revenue, 1) from prior day
+- `revenue_growth_pct`: ((daily_revenue - prior_day_revenue) / NULLIF(prior_day_revenue, 0)) × 100 (day-over-day % change)
+- `weekday_rank`: ROW_NUMBER() by daily_revenue DESC **within each day_of_week** (best Mondays, Tuesdays, etc.)
+
+**Dimensions**:
+- `sale_date`: Calendar date (primary key)
+- `year_quarter`: YYYY-Q# format (e.g., 2025-Q1)
+- `year_month`: YYYY-MM format
+- `day_of_week`: Day name (Monday, Tuesday, ..., Sunday)
+- `is_weekday`: TRUE for Mon-Fri, FALSE for Sat-Sun
+- `is_holiday`: TRUE if date is a holiday (populated from dim_date)
+
+**Use Cases**:
+- Demand forecasting (moving averages = baseline for predictions)
+- Staffing/inventory planning (identify peak/low days)
+- Promotional timing optimization (launch before strong days)
+- Day-of-week trend analysis (weekday vs weekend)
+- Anomaly detection (unusual daily revenue spikes)
+- Time-series feature engineering for ML (churn, demand models)
+
+---
+
+## Mart Architecture & Design Patterns
+
+### Three-Layer CTE Pattern
+
+All marts follow a consistent three-layer CTE design:
+
+**Layer 1: AGGREGATION**
+- Groups raw facts by business entity (product, customer, region, date)
+- Calculates base metrics (SUM, COUNT, DATE_DIFF, AVG)
+- Yields: Intermediate grain (one row per entity)
+
+**Layer 2: CALCULATION**
+- Applies window functions (ROW_NUMBER, NTILE, LAG, AVG OVER)
+- Calculates derived metrics (rankings, quartiles, moving averages, growth %)
+- Maintains row count: Window functions add columns without reducing rows
+
+**Layer 3: ENRICHMENT**
+- Joins dimensions (if needed)
+- Formats for BI (ROUND, CAST, CASE segmentation)
+- Applies business logic (customer segments, performance tiers)
+- Yields: Final analytical table for dashboards/reports
+
+### Quality Controls
+
+All marts include data quality validations via dbt tests:
+
+| Test | Purpose |
+|------|---------|
+| `not_null_*_<primary_key>` | Ensures no NULL primary keys |
+| `unique_*_<primary_key>` | Detects duplicate rows |
+| `dbt_expectations` (optional) | Range checks, pattern validation |
+
+**Current Status**: All 9 dbt tests PASSING (9/9). ✅
+
+---
+
 ## Refresh Cadence & SLAs
 
 | Asset | Frequency | Latency SLA | Owner |
@@ -438,8 +608,19 @@ Looker Studio (Executive Dashboards)
 | dim_store | Real-time | <1 hour | Operations |
 | dim_product | Real-time | <1 hour | Merchandising |
 | dim_customer | Nightly | <4 hours | CRM |
-| Analytical Views | Nightly @ 2 AM UTC | <5 hours | Analytics |
+| stg_sales_clean | Nightly @ 1:30 AM UTC | <4.5 hours | Analytics Engineering |
+| **fct_product_performance** | **Nightly @ 2 AM UTC** | **<5 hours** | **Analytics Engineering** |
+| **fct_customer_lifetime_value** | **Nightly @ 2 AM UTC** | **<5 hours** | **Analytics Engineering** |
+| **fct_regional_sales** | **Nightly @ 2 AM UTC** | **<5 hours** | **Analytics Engineering** |
+| **fct_daily_sales_trends** | **Nightly @ 2 AM UTC** | **<5 hours** | **Analytics Engineering** |
+| Analytical Views (Legacy) | Nightly @ 2 AM UTC | <5 hours | Analytics |
 | BI Dashboards | Every 30 mins | <30 mins | Data Viz |
+
+**Notes**:
+- Marts are refreshed via `dbt run` nightly after staging layer is complete
+- All 4 marts run in parallel (dbt concurrency = 4 threads)
+- Combined refresh time: ~20 seconds for all marts (highly optimized)
+- dbt tests run after refresh to validate quality (9 tests, all PASSING)
 
 ---
 
