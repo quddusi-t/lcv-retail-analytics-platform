@@ -671,6 +671,211 @@ When presenting this to LCW:
 
 ---
 
+## **WEEK 6B (Optional): Snowflake Parallel Warehouse Deployment**
+
+### Goal
+Add Snowflake as a second warehouse target for the same dbt models. Demonstrates warehouse-agnostic data engineering and adds resume impact (multi-cloud credentials).
+
+### Business Context
+
+**Why Parallel Snowflake?**
+- ✅ dbt is warehouse-agnostic (same models, different target)
+- ✅ Snowflake is dominant in European mid-market retail (Turkish companies often use it)
+- ✅ Resume boost: "dbt + BigQuery + Snowflake" > "dbt + BigQuery alone"
+- ✅ Great talking point: "I deploy the same models across multiple warehouses"
+
+**Resume Impact:**
+```
+Before: BigQuery + dbt (Google-ecosystem focused)
+After:  BigQuery + Snowflake + dbt (warehouse-agnostic, enterprise-ready)
+```
+
+**Cost:** Snowflake 30-day free trial with $400 credits (more than enough for this project)
+
+### Tasks
+
+#### **1. Snowflake Account Setup** (30 min)
+- [ ] Sign up for [Snowflake Free Trial](https://www.snowflake.com/trial/)
+  - No credit card required (trial period)
+  - 30-day trial with $400 compute credits
+- [ ] Create Snowflake account
+- [ ] Note your account identifier (e.g., `xy12345.us-east-1`)
+- [ ] Create role: `TRANSFORMER` (for dbt)
+- [ ] Create warehouse: `COMPUTE_WH` (standard size)
+- [ ] Create database: `LCV_ANALYTICS`
+- [ ] Create schema: `MARTS`
+- [ ] Create user for dbt with appropriate permissions
+
+#### **2. Configure dbt for Snowflake** (1 hour)
+- [ ] Update `src/etl/dbt_project/.dbt/profiles.yml`:
+  ```yaml
+  lcv_retail_analytics:
+    outputs:
+      dev_bigquery:
+        type: bigquery
+        # ... existing BQ config ...
+
+      dev_snowflake:
+        type: snowflake
+        account: your_account_id
+        user: dbt_user
+        password: your_password  # Or use environment variable: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+        role: TRANSFORMER
+        database: LCV_ANALYTICS
+        warehouse: COMPUTE_WH
+        schema: MARTS
+        threads: 4
+        client_session_keep_alive: False
+
+    target: dev_bigquery  # Default to BigQuery, but can switch
+  ```
+
+- [ ] Install Snowflake dbt adapter:
+  ```bash
+  pip install dbt-snowflake
+  ```
+
+- [ ] Test Snowflake connection:
+  ```bash
+  dbt debug --target dev_snowflake
+  ```
+
+#### **3. Deploy Models to Snowflake** (1-2 hours)
+- [ ] Run staging models on Snowflake:
+  ```bash
+  cd src/etl/dbt_project
+  dbt run --target dev_snowflake -s staging
+  ```
+
+- [ ] Run all marts on Snowflake:
+  ```bash
+  dbt run --target dev_snowflake -s marts
+  ```
+
+- [ ] Run tests on Snowflake:
+  ```bash
+  dbt test --target dev_snowflake -s marts
+  ```
+  - Should see all 9 tests PASS
+  - Confirms data integrity is equal across warehouses
+
+#### **4. Performance & Cost Analysis** (1 hour)
+- [ ] Compare query performance: BigQuery vs Snowflake
+  ```
+  Example: Run same query on both
+  - BigQuery: X seconds
+  - Snowflake: Y seconds
+  - Document findings
+  ```
+
+- [ ] Document cost estimates:
+  ```
+  BigQuery: ~$0.07 per GB scanned
+  Snowflake: $2-4 per credit (1 credit = 1 hour of standard warehouse)
+
+  For this project:
+  - 800K staging rows × 10 column queries × 30 days ≈ $X
+  - Your Snowflake trial covers it entirely
+  ```
+
+- [ ] Update README with warehouse comparison table
+
+#### **5. Documentation & Git** (30 min)
+- [ ] Document in `src/etl/README.md`:
+  - Snowflake setup (account creation, configuration)
+  - How to switch targets: `dbt run --target dev_snowflake`
+  - Performance comparison results
+  - Cost analysis between BigQuery and Snowflake
+
+- [ ] Update `README.md`:
+  - Add "Multi-Warehouse Deployment" section
+  - Highlight dbt warehouse-agnostic architecture
+
+- [ ] Git commits: 2-3
+  ```bash
+  git commit -m "feat: add Snowflake dbt target to profiles.yml"
+  git commit -m "feat: deploy analytics models to Snowflake (parallel to BigQuery)"
+  git commit -m "docs: add warehouse performance and cost comparison"
+  ```
+
+### Deliverables
+
+| File | Purpose |
+|------|---------|
+| `.dbt/profiles.yml` | Updated with Snowflake target (dev_snowflake) |
+| `src/etl/README.md` | Setup instructions + performance comparison |
+| `README.md` | Multi-warehouse deployment section |
+| Snowflake Database | 4 marts + 5 staging models deployed |
+
+### Success Criteria
+
+- ✅ Snowflake account created and configured
+- ✅ dbt-snowflake adapter installed
+- ✅ All 5 staging models successfully deployed to Snowflake
+- ✅ All 4 marts successfully deployed to Snowflake
+- ✅ All 9 data quality tests PASS on Snowflake (same as BigQuery)
+- ✅ Performance metrics documented (query times, costs)
+- ✅ Can switch targets: `dbt run --target dev_snowflake` vs `--target dev_bigquery`
+- ✅ README explains multi-warehouse strategy
+- ✅ Git commits: 2-3 atomic commits
+
+### Portfolio Narrative
+
+When presenting this to employers:
+
+> "I built the analytical platform in dbt, which is warehouse-agnostic. I deployed the exact same models to both BigQuery and Snowflake to demonstrate I can work across modern data stacks. Here's the performance comparison and cost analysis."
+
+**Why This Impresses:**
+- ✅ Shows you understand cloud data warehouses (not just one platform)
+- ✅ Demonstrates warehouse-agnostic thinking (dbt's superpower)
+- ✅ European employers see Snowflake often — huge advantage
+- ✅ Parallel cloud is the future of enterprise data (you're future-ready)
+- ✅ Cost consciousness (you benchmarked and compared)
+
+### Interview Talking Points
+
+- "I chose dbt because it's truly warehouse-agnostic. Same models, different targets."
+- "I tested performance across BigQuery and Snowflake to understand the tradeoffs."
+- "For Turkish companies, Snowflake is often preferred. I'm comfortable in both ecosystems."
+- "The real power is the transformation logic (dbt models), not the warehouse. Switching targets is trivial."
+
+### Effort Estimate
+
+```
+Snowflake setup + dbt config         → 2 hours
+Deploy models + test                 → 2-3 hours
+Performance analysis + documentation → 1 hour
+Total: ~5-6 hours
+```
+
+This is a **high-impact, low-effort addition** to your portfolio!
+
+---
+
+## Week 6: Two Optional Paths
+
+**Choose One or Both:**
+
+### Path A: Phone-Based Customer Identity (Turkish Domain Knowledge)
+- 5-6 hours
+- Reduces NULLs, adds realism
+- Shows business domain understanding
+- LCW-specific competitive advantage
+
+### Path B: Snowflake Deployment (Multi-Cloud Engineering)
+- 5-6 hours
+- Warehouse-agnostic dbt skills
+- Resume: BigQuery + Snowflake
+- European job market advantage
+
+### Path C: Both (Polish Everything) ✨
+- 10-12 hours
+- Most impressive portfolio
+- Complete domain + engineering knowledge
+- "I understand Turkish retail AND modern data stacks"
+
+---
+
 ## 🔄 Git Commit Strategy
 
 Make atomic, well-documented commits:
