@@ -186,16 +186,16 @@ idx_dim_store_status              -- Filter by operational status
 | `product_id` | INTEGER PRIMARY KEY | NOT NULL | Unique product identifier | 1, 2, 3, ..., 500 |
 | `product_name` | VARCHAR(255) | NOT NULL | Product display name | "T-Shirt - Classic Blue" |
 | `product_code` | VARCHAR(50) UNIQUE | NOT NULL | SKU code from inventory system | "PRD00001" |
-| `category` | VARCHAR(100) | NOT NULL | High-level product category | "Textile", "Accessories", "Seasonal" |
 | `subcategory` | VARCHAR(100) | YES | Subcategory for drill-down | "Dresses", "Hats", "Thermal" |
 | `color` | VARCHAR(50) | YES | Product color | "Red", "Blue", "Black" |
 | `size` | VARCHAR(20) | YES | Size dimension | "S", "M", "L", "XL" |
 | `material` | VARCHAR(100) | YES | Material composition | "Cotton", "Polyester", "Wool" |
 | `season` | VARCHAR(20) | YES | Season when product is sold | "Summer", "Winter", "Year-Round" |
 | `brand` | VARCHAR(100) | YES | Brand or supplier | "Brand A", "Generic" |
-| `unit_cost` | DECIMAL(10,2) | NOT NULL | Cost to acquire product | 10.00 |
-| `list_price` | DECIMAL(10,2) | NOT NULL | Suggested retail price | 29.99 |
-| `status` | VARCHAR(20) | NOT NULL | Product status | "Active", "Discontinued", "Coming Soon" |
+| `category` | VARCHAR(100) | NOT NULL | High-level product category **[SCD required]** | "Textile", "Accessories", "Seasonal" |
+| `unit_cost` | DECIMAL(10,2) | NOT NULL | Cost to acquire product **[SCD required]** | 10.00 |
+| `list_price` | DECIMAL(10,2) | NOT NULL | Suggested retail price **[SCD required]** | 29.99 |
+| `status` | VARCHAR(20) | NOT NULL | Product status **[SCD required]** | "Active", "Discontinued", "Coming Soon" |
 | `scd_start_date` | DATE | NOT NULL | When this version became valid (SCD Type 2) | 2024-01-01 |
 | `scd_end_date` | DATE | YES | When this version expired (SCD Type 2) | NULL (current) |
 | `is_current` | BOOLEAN | NOT NULL | Is this the current valid version? | TRUE/FALSE |
@@ -204,16 +204,46 @@ idx_dim_store_status              -- Filter by operational status
 
 ### SCD Type 2 Example
 
-When a product price changes, a new row is inserted:
+**Both financial columns MUST version together** to maintain historical margin accuracy:
 
 ```
-product_id | product_name | list_price | scd_start_date | scd_end_date | is_current
------------+--------------+------------+----------------+--------------+-----------
-1          | T-Shirt      | 19.99      | 2024-01-01     | 2024-06-30   | FALSE
-1          | T-Shirt      | 24.99      | 2024-07-01     | NULL         | TRUE
+product_id | list_price | unit_cost | scd_start_date | scd_end_date | is_current
+-----------+------------+-----------+----------------+--------------+-----------
+1          | 19.99      | 10.00     | 2024-01-01     | 2024-06-30   | FALSE
+1          | 24.99      | 14.00     | 2024-07-01     | NULL         | TRUE
 ```
 
-Queries joining to `dim_product` on `sale_date` will get the correct historical price.
+**Why Both Columns Version Together**: When either `list_price` or `unit_cost` changes, a new row is created with BOTH current values. This ensures margin calculations remain accurate historically:
+- Sale in March 2024: `margin = 29.99 - 10.00 = 19.99` ✅
+- If `unit_cost` overwrites to 14.00: `margin = 29.99 - 14.00 = 15.99` ❌ (corrupted history)
+- With SCD Type 2: Both versions accessible via date range join ✅
+
+**Join Pattern**:
+```sql
+JOIN dim_product dp
+ON sc.product_id = dp.product_id
+AND sc.sale_date BETWEEN dp.scd_start_date
+    AND COALESCE(dp.scd_end_date, '9999-12-31')
+```
+This single join fetches the correct version of BOTH `list_price` and `unit_cost` for every historical sale.
+
+**⚠️ Technical Note**: Currently, marts use pre-calculated `margin_amount` from `fact_sales` (captured at sale time), so historical margins are correct. However, `dim_product` is missing SCD Type 2 implementation for FOUR financial/taxonomic columns:
+
+| Column | Why SCD Type 2 Matters |
+|--------|------------------------|
+| `unit_cost` | Supplier raises costs → margins change. New row preserves old cost for historical margin accuracy. |
+| `list_price` | Seasonal price changes → revenue calculations affected. New row tracks which price applied when. |
+| `category` | Product reclassified → category rollups affected. Should show historical sales under ORIGINAL category. |
+| `status` | Product discontinued → affects reportable product count. Old sales should show "Active" at time of transaction. |
+
+All four change together: when `category` is reclassified, likely `status` (Active) and possibly `unit_cost` (new supplier for new category) change together too.
+
+**Impact**: Without SCD Type 2, overwrites corrupt:
+- ✅ Margins (mitigated: fact_sales.cost_amount stores at sale time)
+- ❌ Product category rollups (no mitigation)
+- ❌ Product status trends (no mitigation)
+
+**Week 3 approach**: Add SCD Type 2 pipeline to `dim_product` to version all four columns together with `(scd_start_date, scd_end_date)` ranges.
 
 ### Indexes
 
@@ -369,6 +399,7 @@ Pre-built views for common analytical use cases. These should be refreshed night
 | No duplicate codes | store_code, product_code, store_code globally unique |
 | Valid date ranges | scd_start_date < scd_end_date (for SCD Type 2) |
 | Status values valid | Only predefined status values allowed |
+| **[TODO Week 3]** SCD Type 2 for 4 columns | `unit_cost`, `list_price`, `category`, `status` should version together with (scd_start_date, scd_end_date) ranges |
 
 ---
 
