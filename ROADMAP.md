@@ -852,27 +852,54 @@ This is a **high-impact, low-effort addition** to your portfolio!
 
 ---
 
-## Week 6: Two Optional Paths
+## Week 6: Multiple Optional Paths
 
-**Choose One or Both:**
+**Choose Any Combination:**
 
 ### Path A: Phone-Based Customer Identity (Turkish Domain Knowledge)
 - 5-6 hours
 - Reduces NULLs, adds realism
 - Shows business domain understanding
 - LCW-specific competitive advantage
+- Deliverable: stg_phone_identity model + enhanced CLV mart
 
 ### Path B: Snowflake Deployment (Multi-Cloud Engineering)
 - 5-6 hours
 - Warehouse-agnostic dbt skills
 - Resume: BigQuery + Snowflake
 - European job market advantage
+- Deliverable: Snowflake + dbt + performance comparison
 
-### Path C: Both (Polish Everything) ✨
+### Path C: API Enhancements (FastAPI User Tracking) ✨
+- 3-4 hours
+- Build production-grade REST APIs (separate from ML models)
+- User progress tracking endpoint
+- CRUD operations + charting
+- Showcase full-stack FastAPI skills
+
+**Path C Details:**
+```python
+# New endpoints for user progress tracking
+@app.get("/users/{user_id}/progress/chart")
+@app.get("/users/{user_id}/progress/summary")
+@app.post("/users/{user_id}/progress")
+
+# Requires: UserProgress table in BigQuery
+# Tests: All CRUD operations validated
+# Resume: "ML models + REST API layer"
+```
+
+### Path D: Two Paths Combined
 - 10-12 hours
+- A + B: Domain knowledge + Multi-cloud
+- A + C: Domain knowledge + API skills
+- B + C: Multi-cloud + API skills
+
+### Path E: All Three (Ultimate Polish) ✨✨
+- 15-18 hours
+- Complete package: domain + cloud + APIs
+- "I understand Turkish retail, modern cloud data stacks, AND production FastAPI"
 - Most impressive portfolio
-- Complete domain + engineering knowledge
-- "I understand Turkish retail AND modern data stacks"
 
 ---
 
