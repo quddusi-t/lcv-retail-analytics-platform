@@ -307,6 +307,30 @@ Instead of debugging compatibility, we created the dbt project structure manuall
 ### Goal
 Build optimized analytics tables in BigQuery and demonstrate cost/performance improvements.
 
+### ⚠️ Reality Check: Savings Expectations
+
+**Important Context on the "96% Cost Reduction" Claim:**
+
+Your dataset: **~1M rows ≈ 100-200 MB**
+- At this scale, partitioning/clustering is correct practice and essential learning
+- Realistic savings: **50-80%** (not 96%)
+- Why? Absolute data is smaller, so optimization gains are proportionally smaller
+
+**The 96% reduction is real at enterprise scale:**
+- Billions of rows = hundreds of GB / TB of data
+- Partitioning on date + clustering on join keys = massive scans eliminated
+- Example: 500 GB table → 5 GB scanned = 99% reduction
+
+**Your learning value:**
+- Same optimization techniques as enterprise pipelines ✅
+- Same dbt config patterns ✅
+- Same benchmarking methodology ✅
+- Just different absolute numbers (50-80% instead of 96%)
+
+**Resume talking point:** "I optimized queries using BigQuery partitioning and clustering, reducing scanned bytes by 60%+ and improving performance by 5-10x on a 1M row dataset. At enterprise scale (TB+ data), these same techniques achieve 95%+ cost reductions."
+
+---
+
 ### Tasks
 
 #### **Day 1–2: Create Analytics Mart**
@@ -337,9 +361,9 @@ Build optimized analytics tables in BigQuery and demonstrate cost/performance im
   Cost Reduction = (Bytes Unoptimized - Bytes Optimized) / Bytes Unoptimized * 100%
   ```
 - [ ] Document results in `docs/PERFORMANCE_LOG.md`
-  - Example: "Query time: 8.2s → 0.3s (96% savings)"
+  - Example: "Query time: 2.5s → 0.3s (88% reduction in scanned bytes)"
 - [ ] Create summary README for optimization wins
-- **Output**: Performance report with benchmarks
+- **Output**: Performance report with realistic benchmarks
 
 ### Deliverables
 
@@ -352,8 +376,8 @@ Build optimized analytics tables in BigQuery and demonstrate cost/performance im
 
 ### Success Criteria
 - ✅ Analytics mart tables created and tested
-- ✅ Partitioning/clustering demonstrably improves performance (>50% faster)
-- ✅ Query cost benchmarked and documented
+- ✅ Partitioning/clustering demonstrably improves performance (50%+ reduction in bytes scanned)
+- ✅ Query cost benchmarked and documented with realistic expectations
 - ✅ Git commits: 3–4 (mart models, clustering, performance docs)
 
 ---
@@ -849,6 +873,322 @@ Total: ~5-6 hours
 ```
 
 This is a **high-impact, low-effort addition** to your portfolio!
+
+---
+
+## **WEEK 7: Automated Incremental Pipeline — Production Patterns**
+
+### Goal
+Transform your project from "I built a data warehouse" to "I built a production-pattern data pipeline with automated incremental loading." Add nightly transaction simulation and convert dbt models to incremental materialization.
+
+### Business Context
+
+**Production Reality:**
+- Batch reloads are expensive at scale (100M+ rows = $$$, hours of compute)
+- Incremental loading is how production pipelines work everywhere
+- Your current pipeline: Full rebuild nightly (~10-30 min on 1M rows)
+- Production pipeline: Append only new rows (~30 sec for 2,740 daily transactions)
+
+**Resume Impact:**
+```
+Before: "Built a data warehouse with 1M records"
+After:  "Built an automated nightly ETL pipeline with incremental
+         loading—simulating production batch patterns"
+```
+
+The word **"incremental"** and **"automated"** signal real data engineering experience.
+
+### Tasks
+
+#### **Day 1–2: Daily Transaction Generator**
+
+- [ ] Create `src/etl/daily_transactions.py`
+  ```python
+  def generate_daily_transactions(date, n_transactions=2740):
+      # ~1M rows / 365 days = ~2,740 per day average
+      # Simulate natural variation (some days 2000, others 3500)
+      transactions = []
+      for _ in range(n_transactions):
+          transactions.append({
+              'sale_date': date,
+              'store_id': random.randint(1, 50),
+              'product_id': random.randint(1, 500),
+              'customer_id': random.choice([None] * 30 + list(range(1, 10001))),  # 3% NULL
+              'quantity': random.randint(1, 5),
+              # ... complete transaction record ...
+          })
+      return transactions
+
+  if __name__ == "__main__":
+      today = datetime.now().date()
+      df = pd.DataFrame(generate_daily_transactions(today))
+      # Insert to Postgres
+  ```
+
+- [ ] Test locally: Generate today's transactions, append to Postgres
+- [ ] Verify partition: Check data appears in postgres with correct date
+
+#### **Day 3: Integrate with Existing ETL Pipeline**
+
+- [ ] Update `src/etl/postgres_to_gcs.py`:
+  - Change FROM: "Export all tables"
+  - Change TO: "Export only WHERE sale_date >= (today - 2 days)" (buffer for late arrivals)
+  - Implement incremental export logic
+
+- [ ] Update `src/etl/gcs_to_bigquery.py`:
+  - Change FROM: "WRITE_TRUNCATE" (full replacement)
+  - Change TO: "WRITE_APPEND" (incremental append)
+  - Add `_PARTITIONTIME` validation to ensure data goes to correct date partitions
+
+- [ ] Test: Run daily generator → postgres_to_gcs (incremental extract) → gcs_to_bigquery (append)
+  - Verify: Today's transactions appear in BigQuery within correct partition
+  - Verify: No duplicate IDs (sale_id is unique across all time)
+
+#### **Day 4–5: Convert Key Marts to Incremental dbt Models**
+
+**Why Incremental?**
+```sql
+-- Current (full rebuild every dbt run):
+{{ config(materialized='table') }}
+SELECT * FROM {{ ref('stg_sales_clean') }}
+-- Result: All 800K rows rebuilt every time (slow + expensive)
+
+-- Incremental (append only new rows):
+{{ config(materialized='incremental') }}
+SELECT * FROM {{ ref('stg_sales_clean') }}
+{% if is_incremental() %}
+  WHERE sale_date > (SELECT MAX(sale_date) FROM {{ this }})
+{% endif %}
+-- Result: Only 2,740 new rows processed (fast + cheap)
+```
+
+**Implementation:**
+
+- [ ] Convert `fct_daily_sales_trends` to incremental
+  ```sql
+  -- models/marts/fct_daily_sales_trends.sql
+  {{ config(materialized='incremental') }}
+
+  WITH daily_sales AS (
+    SELECT
+      sale_date,
+      SUM(net_amount) AS daily_revenue,
+      SUM(quantity) AS daily_units,
+      -- ... other metrics ...
+    FROM {{ ref('stg_sales_clean') }}
+    GROUP BY sale_date
+  )
+  SELECT * FROM daily_sales
+
+  {% if is_incremental() %}
+    WHERE sale_date > (SELECT MAX(sale_date) FROM {{ this }})
+  {% endif %}
+  ```
+
+- [ ] Convert `fct_product_performance` to incremental
+  - Aggregate by `product_id` (dimensions stay same, only append new sales)
+  - First run: rebuild all products
+  - Daily runs: recalculate only affected products
+
+- [ ] Keep `fct_customer_lifetime_value` and `fct_regional_sales` as full rebuild (safer for aggregates)
+  - These need full historical context (can't append incrementally without complex logic)
+  - Dimension tables ALWAYS full rebuild
+
+- [ ] Test incremental behavior:
+  ```bash
+  # First run (full build)
+  dbt run -s fct_daily_sales_trends
+  # Check: How many rows? (should match SELECT COUNT(*) from raw data)
+
+  # Second run (incremental append)
+  dbt run -s fct_daily_sales_trends
+  # Check: Did it append only new day's rows?
+  # Verify: No duplicates in results
+  ```
+
+#### **Day 5 (cont'd): Validate Incremental = Full**
+
+- [ ] Create validation test: `tests/validate_incremental.sql`
+  ```sql
+  -- Ensure incremental mart is identical to full rebuild
+  SELECT COUNT(*) as incremental_count FROM {{ ref('fct_daily_sales_trends') }}
+  UNION ALL
+  SELECT COUNT(*) as full_rebuild_count FROM (
+    SELECT * FROM {{ ref('stg_sales_clean') }}
+    GROUP BY sale_date
+    -- ... full rebuild logic ...
+  )
+  -- Both counts should match exactly
+  ```
+
+- [ ] Run test: `dbt test -s fct_daily_sales_trends`
+  - Catch any bugs where incremental diverges from full rebuild
+  - This is critical: one missed row = silent data corruption
+
+#### **Day 5+: Schedule Nightly Run with Windows Task Scheduler**
+
+- [ ] Create `src/etl/run_nightly_pipeline.py`:
+  ```python
+  #!/usr/bin/env python3
+  """
+  Nightly pipeline orchestrator:
+  1. Generate today's transactions
+  2. postgres_to_gcs (incremental extract)
+  3. gcs_to_bigquery (incremental load)
+  4. dbt run (refresh incremental marts)
+  5. Send completion notification
+  """
+
+  if __name__ == "__main__":
+      # 1. Generate daily transactions
+      today = datetime.now().date()
+      transactions_df = generate_daily_transactions(today)
+      load_to_postgres(transactions_df)
+
+      # 2-3. ETL Pipeline
+      postgres_to_gcs(incremental=True, date=today)
+      gcs_to_bigquery(append_mode=True, date=today)
+
+      # 4. Refresh marts
+      os.system("cd src/etl/dbt_project && dbt run -s +fct_daily_sales_trends")
+
+      # 5. Log success
+      logger.info(f"Pipeline complete: {today}")
+  ```
+
+- [ ] Create Windows Task Scheduler entry:
+  - **Task Name**: `LCV-Retail-NightlyETL`
+  - **Trigger**: Daily at 2:00 AM (off-peak)
+  - **Action**: `python src/etl/run_nightly_pipeline.py`
+  - **Log Output**: `logs/pipeline_2026-03-16.log`
+
+- [ ] Test: Run manually first
+  ```bash
+  python src/etl/run_nightly_pipeline.py
+  # Check logs/
+  # Verify BigQuery received new data
+  # Verify dbt marts incremented (not rebuilt)
+  ```
+
+- [ ] Documentation: `src/etl/README.md`
+  - How to set up Windows Task Scheduler
+  - How to monitor nightly runs
+  - How to debug if a run fails
+
+### Deliverables
+
+| File | Purpose |
+|------|---------|
+| `src/etl/daily_transactions.py` | Generates 2,740 transactions for a given date |
+| `src/etl/run_nightly_pipeline.py` | Orchestrator (generate → extract → load → dbt refresh) |
+| `src/etl/postgres_to_gcs.py` | UPDATED: Incremental WHERE clause (last 2 days) |
+| `src/etl/gcs_to_bigquery.py` | UPDATED: WRITE_APPEND mode instead of WRITE_TRUNCATE |
+| `src/etl/dbt_project/models/marts/fct_daily_sales_trends.sql` | UPDATED: Incremental materialization |
+| `src/etl/dbt_project/models/marts/fct_product_performance.sql` | UPDATED: Incremental materialization |
+| `tests/validate_incremental.sql` | Ensures incremental = full rebuild |
+| `src/etl/README.md` | Updated with nightly pipeline + Task Scheduler setup |
+| `logs/` | Timestamped pipeline execution logs |
+
+### Success Criteria
+
+**Day 1–2: Daily Generator**
+- ✅ Generate 2,740 transactions for any given date
+- ✅ Insert successfully into Postgres
+- ✅ Realistic variation (some days 2000, others 3500)
+
+**Day 3: Incremental ETL**
+- ✅ postgres_to_gcs exports only last 2 days (not all 1M rows)
+- ✅ gcs_to_bigquery appends (WRITE_APPEND), doesn't truncate
+- ✅ Daily cycle: Generate → Extract → Load in <2 minutes total
+
+**Day 4–5: Incremental dbt Models**
+- ✅ `fct_daily_sales_trends` first run: builds all 365 days
+- ✅ `fct_daily_sales_trends` second run: appends only new day
+- ✅ `fct_product_performance` follows same pattern
+- ✅ Validation test PASSES: Incremental results = Full rebuild results
+- ✅ No duplicate rows in incremental tables
+
+**Day 5+: Automation**
+- ✅ Windows Task Scheduler configured and tested
+- ✅ Nightly runs complete without errors (monitored via logs)
+- ✅ All logs timestamped and rotated (older logs compressed/archived)
+- ✅ Pipeline execution time: ~30 seconds for 2,740 new rows (vs 10-30 min for full rebuild)
+
+**Performance Metrics to Document:**
+```
+Before (full rebuild):
+- Extract time: 3-5 minutes (all 1M rows)
+- Load time: 1-2 minutes
+- dbt run time: 5-10 minutes (rebuilding all marts)
+- Total: 10-17 minutes per night
+
+After (incremental):
+- Extract time: 10 seconds (2,740 rows only)
+- Load time: 5 seconds
+- dbt run time: 15 seconds (incremental models)
+- Total: ~30 seconds per night
+- Speedup: 20-30x faster
+- Compute savings: 95%+ reduction (only processing new rows, not entire 1M rows)
+```
+
+**Note on Cost Savings:** This is different from Week 3's query optimization:
+- **Week 3 (Partitioning/Clustering)**: Reduces bytes *scanned by queries* (50-80% on your 1M dataset)
+- **Week 7 (Incremental dbt)**: Reduces *compute* needed to *build* marts nightly (95%+ savings by processing 2.7k rows instead of 1M)
+- Both are essential in production pipelines, just different layers
+
+### Portfolio Narrative
+
+When presenting Week 7 to employers:
+
+> "I built the core analytics platform in 5 weeks. Then I added production-grade pipeline patterns: automated nightly incremental loading. The system now processes 2,740 new daily transactions in 30 seconds—not the 10-30 minutes full rebuild would take. This is incremental dbt materialization, the pattern used by every production data team at scale. I also added Windows Task Scheduler automation, so the pipeline runs nightly without manual intervention. This moves the project from 'data warehouse proof-of-concept' to 'production-ready data infrastructure.'"
+
+**Why This Impresses:**
+- ✅ **Incremental thinking**: Shows you understand production constraints (cost, speed)
+- ✅ **dbt expertise**: Incremental materialization is a tier-2+ dbt skill
+- ✅ **Automation**: Demonstrates DevOps thinking (scheduling, monitoring, logging)
+- ✅ **Cost awareness**: You benchmarked and optimized (95% compute reduction for nightly builds)
+- ✅ **End-to-end ownership**: Not just writing SQL, but running production systems
+- ✅ **Real patterns**: Every production data team does incremental loading
+
+**Interview Talking Points:**
+- "Incremental loading is non-negotiable at scale. 100M+ rows can't do full rebuilds."
+- "I used dbt's `is_incremental()` logic to detect first run vs subsequent runs."
+- "First run rebuilds history, then every night appends only new transactions."
+- "Validated that incremental results exactly match full rebuild (caught data corruption risks)."
+- "Nightly automation via Task Scheduler means zero manual intervention."
+- "Pipeline runs in ~30 seconds on 2,740 daily transactions vs 10+ minutes for full reload."
+
+### Effort Estimate
+
+```
+Daily transaction generator        → 2 hours
+Incremental ETL updates            → 2-3 hours
+Convert marts to incremental dbt   → 2-3 hours
+Validation + testing               → 1 hour
+Task Scheduler automation          → 30 min
+Documentation                      → 1 hour
+Total: ~8.5-9.5 hours (1-1.5 days)
+```
+
+This is the **highest-impact single addition** available—transforms your project from "warehouse" to "production data infrastructure."
+
+---
+
+## Week 6 & 7: Recommended Sequence
+
+**If you do BOTH:**
+1. **Week 6**: Add phone identity OR Snowflake (enterprise features)
+2. **Week 7**: Add incremental pipeline + automation (production patterns)
+
+This sequence makes sense:
+- Week 6 makes the data richer (phone identity) or broader (multi-cloud)
+- Week 7 makes it production-ready (incremental, automated, cost-optimized)
+- Together: "Complete end-to-end analytics platform following production patterns"
+
+**Effort:**
+- Week 6 alone: 5-6 hours
+- Week 7 alone: 8-9 hours
+- Both: 13-15 hours (high-impact portfolio piece)
 
 ---
 

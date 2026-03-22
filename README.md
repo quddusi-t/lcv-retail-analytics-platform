@@ -110,7 +110,6 @@ lcv-retail-analytics-platform/
 ├── .gitignore                      # Git ignore rules
 ├── README.md                       # This file
 ├── ROADMAP.md                      # 5-week detailed plan
-├── GOVERNANCE.md                   # Data dictionary & lineage
 │
 ├── SCHEMA/
 │   ├── star_schema.sql             # Star schema DDL
@@ -236,7 +235,7 @@ This is enough to demonstrate performance optimization and pattern analysis with
 
 ## 🔐 Data Governance
 
-- **Data Dictionary**: Column definitions, data types, and business logic ([GOVERNANCE.md](GOVERNANCE.md))
+- **Data Dictionary**: Column definitions, data types, and business logic ([GOVERNANCE.md](docs/GOVERNANCE.md))
 - **Lineage**: Source → Staging → Marts tracking in dbt
 - **Quality Checks**: dbt tests + custom Python validations
 - **SCD Handling**: Type 2 (track history) for product prices and store attributes
@@ -271,7 +270,7 @@ After completing this project, you will have hands-on experience with:
 ## 🔗 Documentation
 
 - [ROADMAP.md](ROADMAP.md) — Detailed week-by-week plan
-- [GOVERNANCE.md](GOVERNANCE.md) — Data dictionary & lineage
+- [GOVERNANCE.md](docs/GOVERNANCE.md) — Data dictionary & lineage
 - [SCHEMA/](SCHEMA/) — Data modeling details
 - [src/analytics/kpi_definitions.md](src/analytics/kpi_definitions.md) — Business metric definitions
 

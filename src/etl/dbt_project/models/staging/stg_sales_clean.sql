@@ -5,7 +5,13 @@
 {{
     config(
         materialized='table',
-        description='Cleaned and deduplicated sales facts with dimension validation'
+        partition_by={
+            'field': 'sale_date',
+            'data_type': 'date',
+            'granularity': 'day',
+        },
+        cluster_by=['store_id', 'product_id'],
+        description='Cleaned and deduplicated sales facts (800k rows). Partitioned by sale_date for query optimization. Filters NULL values; includes returns.'
     )
 }}
 
@@ -68,5 +74,3 @@ WHERE
     AND product_id IS NOT NULL
     AND customer_id IS NOT NULL
     AND sale_date IS NOT NULL
-
-ORDER BY sale_id

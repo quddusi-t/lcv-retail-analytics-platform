@@ -281,7 +281,7 @@ idx_dim_product_current            -- Quick filter for current products only
 ### Business Definitions
 
 - **loyalty_member**: Only TRUE members have customer_id; non-members show NULL in fact_sales
-- **lifetime_spend**: Calculated field updated after each transaction (for fast reporting)
+- **lifetime_spend**: Static snapshot populated at data generation time. For accurate lifetime metrics use fct_customer_lifetime_value mart which calculates directly from fact_sales.
 - **status**: "Active" = purchased in last 30 days; "Churned" = >90 days inactive
 
 ---
@@ -661,7 +661,7 @@ All marts include data quality validations via dbt tests:
 - **SQL Queries**: See [src/analytics/queries.sql](../src/analytics/queries.sql)
 - **ETL Pipeline**: See [src/etl/](../src/etl/)
 - **dbt Models**: See [src/etl/dbt_project/](../src/etl/dbt_project/)
-- **Governance**: See [GOVERNANCE.md](../GOVERNANCE.md)
+- **Governance**: See [GOVERNANCE.md](../docs/GOVERNANCE.md)
 
 ---
 

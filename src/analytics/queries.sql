@@ -43,6 +43,63 @@ ORDER BY year DESC, month ASC;
 
 
 -- ============================================================
+-- IMPROVED: v_yoy_sales_growth_cte (CTE Version - Cleaner Code)
+-- ============================================================
+-- Same logic as above but using CTEs for readability
+-- This avoids repeating the LAG window function 3 times
+
+CREATE OR REPLACE VIEW v_yoy_sales_growth_cte AS
+WITH monthly_sales AS (
+    -- Layer 1: Aggregate by year/month
+    SELECT
+        EXTRACT(YEAR FROM fs.sale_date) as year,
+        EXTRACT(MONTH FROM fs.sale_date) as month,
+        TO_CHAR(fs.sale_date, 'Month') as month_name,
+        SUM(fs.net_amount) as monthly_revenue,
+        SUM(fs.quantity) as units_sold,
+        COUNT(*) as transaction_count
+    FROM fact_sales fs
+    WHERE fs.is_return = FALSE
+    GROUP BY EXTRACT(YEAR FROM fs.sale_date), EXTRACT(MONTH FROM fs.sale_date), TO_CHAR(fs.sale_date, 'Month')
+),
+with_prior_year AS (
+    -- Layer 2: Add previous year's revenue (LAG calculated once)
+    SELECT
+        year,
+        month,
+        month_name,
+        monthly_revenue,
+        units_sold,
+        transaction_count,
+        LAG(monthly_revenue) OVER (
+            PARTITION BY month
+            ORDER BY year
+        ) as prev_year_revenue
+    FROM monthly_sales
+),
+with_growth AS (
+    -- Layer 3: Calculate growth percentage
+    SELECT
+        year,
+        month,
+        month_name,
+        monthly_revenue,
+        prev_year_revenue,
+        ROUND(
+            (monthly_revenue - prev_year_revenue) / NULLIF(prev_year_revenue, 0) * 100,
+            2
+        ) as yoy_growth_pct,
+        transaction_count,
+        units_sold
+    FROM with_prior_year
+)
+SELECT * FROM with_growth
+ORDER BY year DESC, month ASC;
+
+-- Query: Get current year vs last year (same as above view)
+-- SELECT * FROM v_yoy_sales_growth_cte WHERE year IN (2024, 2025) ORDER BY month, year DESC;
+
+-- ============================================================
 -- QUERY 2: RFM Segmentation (Recency, Frequency, Monetary)
 -- ============================================================
 -- Segments customers based on purchase behavior
