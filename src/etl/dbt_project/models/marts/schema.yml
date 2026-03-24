@@ -136,3 +136,46 @@ models:
         description: "Business classification: Holiday, Weekend, or Weekday. Used to understand different daily patterns."
       - name: _loaded_at
         description: "Timestamp when this mart was last refreshed (dbt run date)"
+
+  - name: fct_store_performance
+    description: "Store-level performance mart answering: which stores are top performers? Provides multi-dimensional analysis of sales, profitability, and transaction metrics by store and region to identify high/low performers and guide operational focus."
+    columns:
+      - name: store_id
+        description: "Unique store identifier (primary key component)"
+        data_tests:
+          - not_null
+          - unique
+      - name: region
+        description: "Geographic region identifier (primary key component)"
+        data_tests:
+          - not_null
+      - name: store_name
+        description: "Store name within region (primary key component)"
+        data_tests:
+          - not_null
+      - name: total_revenue
+        description: "Sum of net_amount (revenue after discounts) for all non-return transactions in the store"
+        data_tests:
+          - not_null
+      - name: total_profit
+        description: "Sum of margin_amount (profit) across all non-return transactions in the store"
+        data_tests:
+          - not_null
+      - name: profit_margin
+        description: "Profit margin percentage for the store: (total_profit / total_revenue) * 100, rounded to 2 decimals. Handles division by zero with NULLIF."
+        data_tests:
+          - not_null
+      - name: total_units_sold
+        data_tests:
+          - not_null
+        description: "Total quantity sold across all non-return transactions in the store"
+      - name: avg_transaction_value
+        description: "Average revenue per transaction for the store: total_revenue / transaction_count, rounded to 2 decimals"
+      - name: transaction_count
+        description: "Count of non-return sales transactions in the store"
+      - name: rank_in_region
+        description: "ROW_NUMBER ranking of stores by total_revenue DESC within each region. Identifies top revenue generators per region."
+      - name: rank_overall
+        description: "ROW_NUMBER ranking of stores by total_revenue DESC across all regions. Identifies top revenue generators overall."
+      - name: _loaded_at
+        description: "Timestamp when this mart was last refreshed (dbt run date)"

@@ -385,55 +385,130 @@ Your dataset: **~1M rows ≈ 100-200 MB**
 ## **WEEK 4: BI Dashboards & KPI Design**
 
 ### Goal
-Build interactive dashboards in Looker Studio (or alternative) with clear KPI definitions.
+Build interactive dashboards in Looker Studio connected to your existing dbt marts with clear KPI definitions and business context.
+
+### 📋 Data Audit: What You Have vs What You Don't
+
+**What You DO Have (from marts):**
+- ✅ Total Revenue, Profit, Daily/Monthly trends
+- ✅ YoY Sales Growth (v_yoy_sales_growth in queries.sql)
+- ✅ Customer LTV, segmentation, at-risk flags
+- ✅ Regional sales, store performance, rankings
+- ✅ Product performance, revenue by category
+- ✅ Customer acquisition/retention metrics
+
+**What You DON'T Have (and shouldn't claim):**
+- ❌ **Inventory Turnover** → No inventory receipt data
+- ❌ **Sell-Through Rate** → No units received (only units sold)
+- ❌ **Reorder Alerts** → No stock level data
+- ❌ **Stock Levels** → Synthetic data is transactions, not inventory
+
+**Result:** Your marts are your views. Don't rebuild them as separate SQL views—connect Looker Studio directly.
 
 ### Tasks
 
-#### **Day 1–2: KPI Definition & Metrics**
-- [ ] Document KPI definitions in `src/analytics/kpi_definitions.md`:
-  - **Total Revenue**: Sum of all sales
-  - **YoY Growth**: % change from prior year
-  - **Store Performance**: Revenue + margin by store
-  - **Customer LTV**: Lifetime value based on transaction history
-  - **Inventory Turnover**: COGS / Average Inventory
-  - **Sell-Through Rate**: Units sold / Units received
-- [ ] Create SQL views for each KPI:
-  - `v_revenue_daily`, `v_yoy_growth`, `v_store_ranking`, `v_customer_ltv`, etc.
-- **Output**: `src/analytics/kpi_definitions.md` + KPI views
+#### **Day 1: Build fct_store_performance Mart + Connect Looker Studio**
+- [ ] Create simple store summary mart (30 min) in `src/etl/dbt_project/models/marts/fct_store_performance.sql`:
+  ```sql
+  -- Grain: store_id + date
+  -- Metrics: total_revenue, total_profit, profit_margin,
+  --          transaction_count, avg_transaction_value
+  -- Rankings: rank_in_region, rank_overall
+  ```
+  - This gives Looker Studio a clean store-level table (avoids joining regional sales to get store metrics)
+  - 3-layer CTE: Aggregate sales by store → Add rankings → Enrich with store attributes
+- [ ] Run `dbt run -s fct_store_performance` and test
+- [ ] Connect Looker Studio to BigQuery `retail_analytics_marts` dataset (30 min)
+  - Service account already configured from Week 2 ✅
+- [ ] Build **Dashboard 1: Executive Summary** (KPI scorecard)
+  - Total revenue (this month vs last month period comparison)
+  - Profit margin %
+  - Transaction count
+  - At-risk customer count (unique from your CLV mart)
+  - Single-page scorecard, big numbers, mobile-friendly
+- **Output**: fct_store_performance mart + Dashboard 1 live
 
-#### **Day 3–4: Looker Studio Dashboard**
-- [ ] Connect Looker Studio to BigQuery
-- [ ] Create dashboard with 5–6 key reports:
-  1. **Sales Dashboard**: Total revenue, trend, regional breakdown
-  2. **Customer Dashboard**: Acquisition, retention, LTV distribution
-  3. **Inventory Dashboard**: Stock levels, turnover by category, reorder alerts
-  4. **Store Performance**: Top/bottom stores, margin analysis
-  5. **KPI Scorecard**: Key metrics at a glance
-- [ ] Add filters: Date range, Store, Product Category, Region
-- [ ] Export dashboard link + screenshot
-- **Output**: Live Looker Studio dashboard
+#### **Day 2: Build Remaining 4 Dashboards**
+- [ ] **Dashboard 2: Sales Trends** (from `fct_daily_sales_trends`)
+  - Daily revenue line chart with trend line
+  - Weekly/monthly aggregations
+  - 7-day and 30-day moving averages
+  - YoY comparison toggle
+  - Day-of-week performance (which days drive most revenue)
+- [ ] **Dashboard 3: Customer Intelligence** (from `fct_customer_lifetime_value`)
+  - Segment distribution pie chart (VIP, Loyal, At Risk, High/Medium/Low Value)
+  - Revenue by segment
+  - Loyalty member vs non-member split
+  - Top 10 customers by LTV
+- [ ] **Dashboard 4: Regional & Store Performance** (from `fct_regional_sales` + new `fct_store_performance`)
+  - Revenue by region (bar or map visualization)
+  - Top 10 / Bottom 10 stores in selected region
+  - Profit margin by region
+  - Store rankings (within region, overall)
+- [ ] **Dashboard 5: Product Performance** (from `fct_product_performance`)
+  - Revenue by category (pie or bar)
+  - Top 10 / Bottom 10 products
+  - Profit margin by product
+  - Units sold by category trend
+- [ ] Add filters to all dashboards:
+  - **report_date** filter (default: last 30 days, not all-time)
+  - Date range picker
+  - Store / Region (where applicable)
+  - Product Category
+- [ ] **Output**: 5 live dashboards, all filters working
 
-#### **Day 5: Documentation & Design Narrative**
-- [ ] Write dashboard README: explain each chart, business logic, how to use
-- [ ] Add annotations to dashboard (hover tooltips with metric definitions)
-- [ ] Screenshot dashboards for GitHub portfolio
-- **Output**: Dashboard guide + visuals
+#### **Day 3: KPI Documentation & Portfolio Narrative**
+- [ ] Write `src/analytics/kpi_definitions.md` (brief, 1000 words max):
+  - Define 6 KPIs you actually have:
+    - **Total Revenue**: Sum of net_amount across all sales
+    - **Profit Margin %**: (Total Profit / Total Revenue) × 100
+    - **YoY Growth**: Revenue this month vs same month last year
+    - **Customer LTV**: Lifetime spend per customer (CLV mart)
+    - **At-Risk Customer Rate**: % of customers inactive 180+ days
+    - **Revenue per Region**: Total revenue aggregated by region
+  - Calculate examples for each KPI
+  - Link to dashboard where metric appears
+- [ ] Write `docs/DASHBOARD_NARRATIVE.md` (business context—this is what separates data engineers from analytics engineers):
+  - "Why We Track At-Risk Customers": Customer churn cost, recovery ROI at LCW scale
+  - "Why YoY Growth Matters": Seasonality patterns in Turkish retail (Ramadan, holidays)
+  - "Why Store Ranking Matters": Performance benchmarking for store managers
+  - "Why Profit Margin Tracking Matters": Category margins differ; bundled promotions affect margins
+  - 500–1000 words total
+- [ ] Take screenshots of each dashboard
+- [ ] Write dashboard README: How to use, filter defaults, refresh schedule
+- [ ] Git commit: kpi_definitions, dashboard narrative, screenshots
+- **Output**: KPI documentation + DASHBOARD_NARRATIVE.md + screenshots
 
 ### Deliverables
 
 | File | Purpose |
 |------|---------|
-| `src/analytics/kpi_definitions.md` | KPI business logic + SQL |
-| `dashboards/looker_studio_config.md` | Dashboard setup + link |
-| `dashboards/queries.sql` | Pre-built dashboard queries |
-| `docs/DASHBOARD_GUIDE.md` | How-to guide for dashboards |
+| `src/etl/dbt_project/models/marts/fct_store_performance.sql` | Store-level summary mart (new) |
+| `src/analytics/kpi_definitions.md` | 6 KPI definitions with examples |
+| `docs/DASHBOARD_NARRATIVE.md` | Business context for each metric (interview gold 💪) |
+| `dashboards/looker_studio_link.md` | Live dashboard link + screenshot URLs |
+| `dashboards/README.md` | How to use dashboards, filter defaults, refresh schedule |
 
 ### Success Criteria
-- ✅ Dashboard with 5+ interactive reports
-- ✅ All KPIs accurately calculated from analytics mart
-- ✅ Filters work (date, store, category, etc.)
-- ✅ Documentation explains business context of each KPI
-- ✅ Git commits: 2–3 (KPI definitions, queries, documentation)
+- ✅ `fct_store_performance` mart created, tested, and deployed (9/9 dbt tests passing)
+- ✅ 5 dashboards live in Looker Studio, each mapped to a specific mart
+- ✅ All filters working (report_date defaults to last 30 days, not all-time)
+- ✅ KPI definitions honest: Only use metrics you have data for
+- ✅ DASHBOARD_NARRATIVE.md explains business impact (not just "here's the metric")
+- ✅ Git commits: 2 (fct_store_performance mart + all dashboards + KPI docs + narrative)
+
+### Realistic Timeline
+- **Previous estimate**: 5 days (building redundant SQL views)
+- **Actual timeline**: 3 days (marts already built, Looker Studio is fast)
+- **Why?** Your analytics marts ARE your views. It's just connecting + styling.
+
+### Portfolio Narrative (What To Say In Interview)
+
+**You built:** "End-to-end analytics platform with 5 executive dashboards backed by a dbt star schema."
+
+**Not:** "Built Looker Studio reports and created 6 SQL views."
+
+**Why the difference?** At enterprise scale, redundant views waste storage and CPU. You proved you know the difference between a mart and a view, and that you don't over-engineer for your data size. 🎯
 
 ---
 

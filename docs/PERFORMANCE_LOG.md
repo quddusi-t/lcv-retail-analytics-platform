@@ -183,12 +183,20 @@ GROUP BY store_id
 
 ### Performance Impact: The Real Story
 
-**Slot Milliseconds (Compute Performance):**
+**Slot Milliseconds (Compute Efficiency Metric):**
 ```
 Unoptimized: 73,142 slot ms
 Optimized:        161 slot ms
 ─────────────────────────────
-Improvement: 454x faster! 🚀
+Improvement: 454x compute efficiency! 🚀
+
+⚠️ Important: Slot milliseconds measure compute resources
+consumed across parallel workers, NOT wall-clock duration.
+At 800k rows, both queries are actually fast for users:
+- Unoptimized: ~1 second wall-clock time
+- Optimized: ~0.16 second wall-clock time
+The 454x improvement reflects compute efficiency and
+cost reduction (BigQuery charges by slot-hours consumed).
 ```
 
 **Combined Cost Reduction:**
