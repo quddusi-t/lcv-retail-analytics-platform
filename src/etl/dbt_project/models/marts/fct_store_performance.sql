@@ -8,7 +8,6 @@ WITH store_performance AS(
         st.region,
         SUM(sa.net_amount) AS total_revenue,
         SUM(sa.margin_amount) AS total_profit,
-        ROUND((SUM(sa.margin_amount) / NULLIF(SUM(sa.net_amount), 0) * 100), 2) AS profit_margin,
         ROUND(SUM(sa.net_amount) / COUNT(*), 2) AS avg_transaction_value,
         COUNT(*) AS transaction_count,
         SUM(sa.quantity) AS total_units_sold
@@ -34,7 +33,6 @@ WITH store_performance AS(
         region,
         total_revenue,
         total_profit,
-        profit_margin,
         avg_transaction_value,
         transaction_count,
         total_units_sold,
@@ -51,7 +49,6 @@ SELECT
     region,
     total_revenue,
     total_profit,
-    profit_margin,
     avg_transaction_value,
     transaction_count,
     total_units_sold,

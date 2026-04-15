@@ -161,10 +161,6 @@ models:
         description: "Sum of margin_amount (profit) across all non-return transactions in the store"
         data_tests:
           - not_null
-      - name: profit_margin
-        description: "Profit margin percentage for the store: (total_profit / total_revenue) * 100, rounded to 2 decimals. Handles division by zero with NULLIF."
-        data_tests:
-          - not_null
       - name: total_units_sold
         data_tests:
           - not_null
