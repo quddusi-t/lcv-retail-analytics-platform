@@ -41,6 +41,7 @@ import psycopg2
 from dotenv import load_dotenv
 from google.cloud import storage
 from google.oauth2 import service_account
+from sqlalchemy import create_engine, text
 
 # Configure logging with rotation
 logging.basicConfig(
@@ -137,6 +138,7 @@ class PostgresToGCSExtractor:
         self.local_only = local_only
         self.conn = None
         self.cursor = None
+        self.engine = None
         self.gcs_client = None
         self.run_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -164,6 +166,12 @@ class PostgresToGCSExtractor:
             )
             self.conn = psycopg2.connect(**self.db_config)
             self.cursor = self.conn.cursor()
+            url = (
+                f"postgresql+psycopg2://{self.db_config['user']}:"
+                f"{self.db_config['password']}@{self.db_config['host']}:"
+                f"{self.db_config['port']}/{self.db_config['database']}"
+            )
+            self.engine = create_engine(url)
             logger.info("[OK] PostgreSQL connection established")
         except psycopg2.OperationalError as e:
             logger.error("Failed to connect to PostgreSQL: %s", str(e))
@@ -199,6 +207,8 @@ class PostgresToGCSExtractor:
             self.cursor.close()
         if self.conn:
             self.conn.close()
+        if self.engine:
+            self.engine.dispose()
         logger.info("Disconnected from PostgreSQL")
 
     def extract_table(self, table_name: str) -> pd.DataFrame:
@@ -215,12 +225,12 @@ class PostgresToGCSExtractor:
         """
         try:
             logger.info("Extracting table: %s", table_name)
-            query = f"SELECT * FROM {table_name};"
-            df = pd.read_sql(query, self.conn)
+            with self.engine.connect() as conn:
+                df = pd.read_sql(text(f"SELECT * FROM {table_name}"), conn)
             record_count = len(df)
             logger.info("[OK] Extracted %d records from %s", record_count, table_name)
             return df
-        except psycopg2.Error as e:
+        except Exception as e:
             logger.error("Failed to extract %s: %s", table_name, str(e))
             raise ETLPipelineError(f"Failed to extract {table_name}: {e}")
 

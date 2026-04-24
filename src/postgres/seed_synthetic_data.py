@@ -114,6 +114,19 @@ NUM_SALES = int(os.getenv("NUM_SALES", 1000000))
 DATE_RANGE_DAYS = int(os.getenv("DATE_RANGE_DAYS", 730))  # 2 years
 RANDOM_SEED = int(os.getenv("RANDOM_SEED", 42))
 
+# Churn modeling: reference date aligns with fct_customer_churn_features as-of date.
+# Customers whose last purchase is >CHURN_DAYS_THRESHOLD days before this date are churned.
+CHURN_REFERENCE_DATE = datetime(2025, 10, 31)
+CHURN_DAYS_THRESHOLD = (
+    90  # must match GREATEST() floor in fct_customer_churn_features.sql
+)
+CHURN_RATE = 0.25  # target ~25% of customers churned
+
+# Store performance tiers — power-law revenue distribution.
+# Weights control relative transaction volume; top stores get 4x bottom stores.
+STORE_TIER_FRACTIONS = {"top": 0.10, "mid": 0.60, "bottom": 0.30}
+STORE_TIER_WEIGHTS = {"top": 4.0, "mid": 1.5, "bottom": 1.0}
+
 
 class DataGenerationError(Exception):
     """Custom exception for data generation failures."""
@@ -134,6 +147,7 @@ class SyntheticDataGenerator:
         self.db_config = db_config
         self.conn = None
         self.cursor = None
+        self.churned_customer_ids: set = set()
 
     def __enter__(self):
         """Context manager entry: establish database connection."""
@@ -239,8 +253,8 @@ class SyntheticDataGenerator:
         """Generate date dimension table."""
         logger.info("Generating %d date dimension records...", DATE_RANGE_DAYS + 1)
         np.random.seed(RANDOM_SEED)
-        # Date dimension covers 2-year lookback: enables trend analysis and YoY comparisons
-        base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
+        # Anchor to CHURN_REFERENCE_DATE so dim_date exactly covers the analysis window
+        base_date = CHURN_REFERENCE_DATE - timedelta(days=DATE_RANGE_DAYS)
         dates = []
 
         for i in range(DATE_RANGE_DAYS + 1):
@@ -388,6 +402,21 @@ class SyntheticDataGenerator:
         """Generate customer dimension table."""
         logger.info("Generating %d customer dimension records...", NUM_CUSTOMERS)
         np.random.seed(RANDOM_SEED)
+
+        # Pre-assign churn status: ~25% Churned, rest Active.
+        # Stored on self so generate_fact_sales can constrain sale dates accordingly.
+        is_churned_arr = np.random.choice(
+            [True, False], size=NUM_CUSTOMERS, p=[CHURN_RATE, 1 - CHURN_RATE]
+        )
+        self.churned_customer_ids = {
+            i + 1 for i, churned in enumerate(is_churned_arr) if churned
+        }
+        logger.info(
+            "Assigned %d churned customers (%.1f%% of total)",
+            len(self.churned_customer_ids),
+            len(self.churned_customer_ids) / NUM_CUSTOMERS * 100,
+        )
+
         customers = []
 
         for customer_id in range(1, NUM_CUSTOMERS + 1):
@@ -397,6 +426,7 @@ class SyntheticDataGenerator:
                 np.random.choice([True, False], p=[0.7, 0.3])
             )  # Convert numpy.bool_ to Python bool
             country = "USA"
+            status = "Churned" if customer_id in self.churned_customer_ids else "Active"
 
             # Generate dates for loyalty members
             if loyalty_member:
@@ -418,7 +448,7 @@ class SyntheticDataGenerator:
                     0,  # lifetime_purchases
                     0.0,  # lifetime_spend
                     country,
-                    "Active",
+                    status,
                 )
             )
 
@@ -466,7 +496,47 @@ class SyntheticDataGenerator:
         self.cursor.execute("SELECT customer_id FROM dim_customer ORDER BY customer_id")
         customer_ids = [row[0] for row in self.cursor.fetchall()]
 
-        base_date = datetime.now() - timedelta(days=DATE_RANGE_DAYS)
+        # Assign store performance tiers for power-law revenue distribution.
+        # Use a separate RNG so tier shuffling doesn't affect the main sales random sequence.
+        tier_rng = np.random.default_rng(RANDOM_SEED)
+        shuffled_store_ids = tier_rng.permutation(store_ids)
+        n_stores = len(store_ids)
+        n_top = max(1, round(n_stores * STORE_TIER_FRACTIONS["top"]))
+        n_mid = round(n_stores * STORE_TIER_FRACTIONS["mid"])
+        top_stores = set(shuffled_store_ids[:n_top])
+        mid_stores = set(shuffled_store_ids[n_top : n_top + n_mid])
+        n_bottom = n_stores - n_top - n_mid
+        logger.info(
+            "Store tiers: %d top / %d mid / %d bottom (weights %.1f / %.1f / %.1f)",
+            n_top,
+            n_mid,
+            n_bottom,
+            STORE_TIER_WEIGHTS["top"],
+            STORE_TIER_WEIGHTS["mid"],
+            STORE_TIER_WEIGHTS["bottom"],
+        )
+        raw_weights = [
+            (
+                STORE_TIER_WEIGHTS["top"]
+                if sid in top_stores
+                else (
+                    STORE_TIER_WEIGHTS["mid"]
+                    if sid in mid_stores
+                    else STORE_TIER_WEIGHTS["bottom"]
+                )
+            )
+            for sid in store_ids
+        ]
+        total_weight = sum(raw_weights)
+        store_probs = [w / total_weight for w in raw_weights]
+
+        # Anchor to CHURN_REFERENCE_DATE: all transactions fall within [base_date, reference date],
+        # matching the dim_date window exactly and avoiding wasted post-reference transactions.
+        base_date = CHURN_REFERENCE_DATE - timedelta(days=DATE_RANGE_DAYS)
+
+        # Churned customers: last purchase must be >90 days before reference date
+        churn_cutoff = CHURN_REFERENCE_DATE - timedelta(days=CHURN_DAYS_THRESHOLD)
+        churned_max_offset = max(1, (churn_cutoff - base_date).days)
         sales_records = []
         sale_id = 1
         payment_methods = ["Cash", "Credit Card", "Debit Card", "Mobile Pay"]
@@ -476,10 +546,7 @@ class SyntheticDataGenerator:
         total_batches = NUM_SALES // batch_size
         for batch_num in range(0, total_batches):
             for _ in range(batch_size):
-                sale_date = base_date + timedelta(
-                    days=int(np.random.randint(0, DATE_RANGE_DAYS + 1))
-                )
-                store_id = int(np.random.choice(store_ids))
+                store_id = int(np.random.choice(store_ids, p=store_probs))
                 product_id = int(np.random.choice(product_ids))
 
                 # 80% of sales tracked to loyalty members: enables customer segmentation analysis
@@ -488,6 +555,18 @@ class SyntheticDataGenerator:
                     customer_id = int(np.random.choice(customer_ids))
                 else:
                     customer_id = None
+
+                # Churned customers: cap sale_date before the churn cutoff so
+                # days_since_last_purchase > 90 at the reference date.
+                # Active customers: full date range.
+                if customer_id in self.churned_customer_ids:
+                    sale_date = base_date + timedelta(
+                        days=int(np.random.randint(0, churned_max_offset))
+                    )
+                else:
+                    sale_date = base_date + timedelta(
+                        days=int(np.random.randint(0, DATE_RANGE_DAYS + 1))
+                    )
 
                 quantity = int(np.random.randint(1, 10))
                 unit_price = float(np.random.uniform(10, 200))
@@ -498,10 +577,18 @@ class SyntheticDataGenerator:
                 unit_cost = unit_price / cost_markup
                 cost_amount = unit_cost * quantity
 
-                # Discount distribution: mimics promotional strategy
-                # 50% no discount, 20% small (5%), 15% moderate (10%), 10% high (15%), 5% deep (20%)
+                # Churned customers exhibit pre-churn signals: higher discount sensitivity
+                # (only bought on promotion) and higher return rates (disengaged buyers).
+                # This gives spend_trend_ratio and return_rate real predictive signal beyond recency.
+                if customer_id in self.churned_customer_ids:
+                    discount_probs = [0.30, 0.20, 0.20, 0.15, 0.15]
+                    return_prob = 0.10
+                else:
+                    discount_probs = [0.50, 0.20, 0.15, 0.10, 0.05]
+                    return_prob = 0.04
+
                 discount_pct = int(
-                    np.random.choice([0, 5, 10, 15, 20], p=[0.5, 0.2, 0.15, 0.1, 0.05])
+                    np.random.choice([0, 5, 10, 15, 20], p=discount_probs)
                 )
                 total_amount = unit_price * quantity
                 discount_amount = (
@@ -512,10 +599,9 @@ class SyntheticDataGenerator:
                 # Margin calculation: profit = revenue - cost
                 margin_amount = net_amount - cost_amount
 
-                # Returns (5% realistic e-commerce return rate): negative transactions reduce recognition
                 is_return = bool(
-                    np.random.choice([True, False], p=[0.05, 0.95])
-                )  # Convert numpy.bool_ to Python bool
+                    np.random.choice([True, False], p=[return_prob, 1 - return_prob])
+                )
                 if is_return:
                     # Returns are recorded as negative to offset original sale in fact table
                     net_amount = -abs(net_amount)
@@ -635,8 +721,6 @@ class SyntheticDataGenerator:
             logger.error(f"[ERROR] ERROR DURING DATA GENERATION: {e}")
             logger.error("=" * 60)
             raise
-        finally:
-            self.disconnect()
 
 
 def main() -> None:

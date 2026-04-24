@@ -54,6 +54,49 @@ models:
       - name: _loaded_at
         description: "Timestamp when this mart was last refreshed (dbt run date)"
 
+  - name: fct_customer_churn_features
+    description: "Churn modeling feature mart: one row per customer as of 2025-10-31. Provides time-windowed behavioral features and a cadence-relative churn target label for the /api/predict/churn ML endpoint."
+    columns:
+      - name: customer_id
+        description: "Unique customer identifier (primary key)"
+        data_tests:
+          - unique
+          - not_null
+      - name: loyalty_member
+        description: "Whether customer is a loyalty program member (from stg_customer_clean)"
+      - name: days_since_last_purchase
+        description: "Days between last non-return purchase and 2025-10-31 (recency)"
+        data_tests:
+          - not_null
+      - name: purchases_l30d
+        description: "Non-return purchase count in last 30 days before reference date"
+      - name: purchases_l60d
+        description: "Non-return purchase count in last 60 days before reference date"
+      - name: purchases_l90d
+        description: "Non-return purchase count in last 90 days before reference date"
+      - name: spend_l90d
+        description: "Net spend (after discounts) in last 90 days before reference date"
+      - name: spend_prev_90d
+        description: "Net spend in the 90-day window prior to spend_l90d (days 91-180)"
+      - name: spend_trend_ratio
+        description: "spend_l90d / spend_prev_90d; < 1.0 indicates declining spend; NULL when no prior-period purchases"
+      - name: return_rate
+        description: "Proportion of all transactions that are returns (0.0–1.0)"
+      - name: avg_days_between_purchases
+        description: "Mean inter-purchase gap in days; NULL for customers with only one purchase"
+      - name: purchase_count
+        description: "Lifetime non-return purchase count"
+      - name: is_churned
+        description: "Churn target: TRUE if days_since_last_purchase > GREATEST(90, avg_days_between_purchases * 1.5)"
+        data_tests:
+          - not_null
+      - name: as_of_date
+        description: "Reference date for all window calculations (2025-10-31)"
+        data_tests:
+          - not_null
+      - name: _loaded_at
+        description: "Timestamp when this mart was last refreshed"
+
   - name: fct_regional_sales
     description: "Regional sales performance mart answering: which regions/stores are performing best/worst? Provides multi-dimensional analysis of sales, units, and profitability by region, store, product category, and month to identify underperforming areas and optimization opportunities."
     columns:
