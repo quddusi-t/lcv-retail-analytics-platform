@@ -4,7 +4,7 @@
 
 {{
     config(
-        materialized='table',
+        materialized='view',
         partition_by={
             'field': 'sale_date',
             'data_type': 'date',

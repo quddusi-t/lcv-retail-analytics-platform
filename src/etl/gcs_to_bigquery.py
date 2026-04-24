@@ -19,6 +19,7 @@ import os
 import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
+import argparse
 
 from google.cloud import bigquery, storage
 from google.oauth2 import service_account
@@ -169,11 +170,18 @@ class GCSToBigQueryLoader:
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--date",
+        default=datetime.today().strftime("%Y-%m-%d"),
+        help="GCS folder date to load from (YYYY-MM-DD). Defaults to today.",
+    )
+    args = parser.parse_args()
+
     try:
         start_time = datetime.now()
-
-        # Use today's date by default (change manually if needed)
-        load_date = "2026-02-26"
+        load_date = args.date
+        logger.info(f"Loading from GCS folder: {load_date}")
 
         with GCSToBigQueryLoader(
             GCP_PROJECT_ID, GCP_KEY_PATH, GCS_BUCKET, BIGQUERY_DATASET
