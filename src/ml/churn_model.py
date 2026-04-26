@@ -3,6 +3,10 @@ Churn prediction model: Pydantic schemas + ChurnPredictor inference class.
 
 Loaded at API startup and called per request. Expects model artifacts produced
 by train_churn.py: churn_model.pkl, churn_scaler.pkl, churn_metadata.json.
+
+Only CLEAN_FEATURES are passed to the model — the leaky recency features
+(days_since_last_purchase, purchases_l*d, spend_l90d, spend_trend_ratio) are
+accepted in ChurnFeatures for API completeness but excluded from inference.
 """
 
 import json
@@ -14,14 +18,9 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
+# Must match CLEAN_FEATURES in train_churn.py — the scaler was fit on these only.
 FEATURE_COLUMNS = [
-    "days_since_last_purchase",
-    "purchases_l30d",
-    "purchases_l60d",
-    "purchases_l90d",
-    "spend_l90d",
     "spend_prev_90d",
-    "spend_trend_ratio",
     "return_rate",
     "avg_days_between_purchases",
     "purchase_count",
@@ -35,14 +34,15 @@ _DEFAULT_MODEL_DIR = Path(__file__).parent / "models"
 
 class ChurnFeatures(BaseModel):
     customer_id: int | None = None
-    days_since_last_purchase: int
-    purchases_l30d: int
-    purchases_l60d: int
-    purchases_l90d: int
-    spend_l90d: float
-    spend_prev_90d: float
-    # NULL-able: 0 when no prior-period spend / single-purchase customer
+    # Leaky recency features — accepted for API compatibility, not used in inference
+    days_since_last_purchase: int | None = None
+    purchases_l30d: int | None = None
+    purchases_l60d: int | None = None
+    purchases_l90d: int | None = None
+    spend_l90d: float | None = None
     spend_trend_ratio: float | None = None
+    # Clean pre-churn behavioral features — required for inference
+    spend_prev_90d: float
     return_rate: float | None = None
     avg_days_between_purchases: float | None = None
     purchase_count: int
@@ -79,17 +79,10 @@ class ChurnPredictor:
         )
 
     def _to_array(self, features: list["ChurnFeatures"]) -> np.ndarray:
+        # Only CLEAN_FEATURES — must match the column order the scaler was fit on.
         rows = [
             {
-                "days_since_last_purchase": f.days_since_last_purchase,
-                "purchases_l30d": f.purchases_l30d,
-                "purchases_l60d": f.purchases_l60d,
-                "purchases_l90d": f.purchases_l90d,
-                "spend_l90d": f.spend_l90d,
                 "spend_prev_90d": f.spend_prev_90d,
-                "spend_trend_ratio": (
-                    f.spend_trend_ratio if f.spend_trend_ratio is not None else 0.0
-                ),
                 "return_rate": f.return_rate if f.return_rate is not None else 0.0,
                 "avg_days_between_purchases": (
                     f.avg_days_between_purchases
