@@ -125,6 +125,13 @@ class GCSToBigQueryLoader:
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,  # Overwrite
         )
 
+        if table_name == "fact_sales":
+            job_config.time_partitioning = bigquery.TimePartitioning(
+                type_=bigquery.TimePartitioningType.DAY,
+                field="sale_date",
+            )
+            logger.info("Applying DAY partitioning on sale_date for fact_sales")
+
         logger.info(f"Loading {gcs_uri} → {table_id}")
         load_job = self.bq_client.load_table_from_uri(
             gcs_uri, table_id, job_config=job_config
