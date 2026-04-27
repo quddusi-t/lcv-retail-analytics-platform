@@ -92,6 +92,42 @@ CLEAN_FEATURES = [
     "loyalty_member",
 ]
 
+# ---------------------------------------------------------------------------
+# Future feature improvements
+#
+# FEATURE CANDIDATES (require dbt mart changes to add the columns):
+#
+#   return_rate_prev_90d       Windowed return rate for the 91–180d window only.
+#                              Note: return_rate_l90d (last 90d) would be leaky —
+#                              churned customers have no purchases in that window,
+#                              so their return count is 0 by construction, same
+#                              failure mode as spend_l90d. Use the prev window to
+#                              mirror spend_prev_90d's safe boundary.
+#
+#   purchase_count_prev_90d    Purchase count for the 91–180d window (not l180d).
+#                              purchase_count_l180d is partially leaky: the 0–90d
+#                              half of the window is 0 for all churned customers.
+#                              The prev-90d slice is clean for the same reason
+#                              spend_prev_90d is.
+#
+#   log1p(avg_days_between_purchases)
+#                              avg_days_between_purchases is right-skewed (many
+#                              customers cluster <30d, a long tail to 300d+).
+#                              log1p compression improves Logistic Regression's
+#                              linear boundary; less critical for Random Forest
+#                              since trees split on thresholds. Apply in
+#                              preprocess() before scaling.
+#
+# DATA QUALITY NOTE (synthetic data):
+#
+#   loyalty_member             Currently seeded as a static binary with no
+#                              engineered correlation to churn behavior. In
+#                              production, loyalty members should have a
+#                              measurably lower churn rate. Until the seeder
+#                              encodes that relationship, this feature contributes
+#                              near-zero signal and will show low RF importance.
+# ---------------------------------------------------------------------------
+
 TARGET_COLUMN = "is_churned"
 
 # Reference date: 2025-10-31. Temporal train/test cutoff: 2025-07-31 = 92 days prior.

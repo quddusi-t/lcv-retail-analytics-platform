@@ -1,19 +1,6 @@
 -- Staging model for fact_sales fact table
 -- Deduplicates, validates, and joins with dimensions
--- Materialized as table for performance (1M rows)
-
-{{
-    config(
-        materialized='view',
-        partition_by={
-            'field': 'sale_date',
-            'data_type': 'date',
-            'granularity': 'day',
-        },
-        cluster_by=['store_id', 'product_id'],
-        description='Cleaned and deduplicated sales facts (800k rows). Partitioned by sale_date for query optimization. Filters NULL values; includes returns.'
-    )
-}}
+-- Materialized as view (default from dbt_project.yml)
 
 SELECT
     sale_id,
