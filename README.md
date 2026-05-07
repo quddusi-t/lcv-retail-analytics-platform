@@ -145,6 +145,25 @@ Risk tiers: `low` (< 0.30) / `medium` (0.30–0.60) / `high` (≥ 0.60). Swagger
 
 ---
 
+## Dashboards
+
+![Daily Sales Trends](docs/SCREENSHOTS/01_daily_sales_trends.png)
+*Revenue by day with 7-day and 30-day moving averages, day-of-week patterns, and day-over-day growth rate.*
+
+![Product Performance](docs/SCREENSHOTS/02_product_performance.png)
+*Revenue, units sold, and profit margin by product and category, ranked by total contribution.*
+
+![Customer Intelligence](docs/SCREENSHOTS/03_customer_intelligence.png)
+*RFM-based customer segmentation — VIP, High Value, At Risk — with lifetime value distribution and loyalty breakdown.*
+
+![Regional & Store Performance](docs/SCREENSHOTS/04_regional_store_performance.png)
+*Store ranking by revenue and profit within each region, with performance tier classification.*
+
+![Executive Scorecard](docs/SCREENSHOTS/05_executive_scorecard.png)
+*Top-line KPIs: total revenue, transaction count, average order value, and churn rate across the full dataset.*
+
+---
+
 ## Project Structure
 
 ```
