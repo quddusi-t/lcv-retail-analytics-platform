@@ -23,7 +23,7 @@ SELECT
     is_holiday,
     holiday_name
 FROM
-    `{{ var('raw_dataset') }}.dim_date`
+    {{ var('raw_dataset') }}.dim_date
 WHERE
     -- Ensure no null dates
     date_value IS NOT NULL

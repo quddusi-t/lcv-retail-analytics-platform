@@ -1,11 +1,13 @@
+{%- set ref_date = date_literal('2025-10-31') -%}
+
 {{ config(
     materialized='table',
     partition_by={
         'field': 'as_of_date',
         'data_type': 'date',
         'granularity': 'day',
-    },
-    cluster_by=['is_churned', 'loyalty_member'],
+    } if target.type == 'bigquery' else none,
+    cluster_by=['is_churned', 'loyalty_member'] if target.type == 'bigquery' else none,
 ) }}
 
 -- Reference date: 2025-10-31 (synthetic data ceiling).
@@ -18,7 +20,7 @@ WITH purchase_history AS (
         is_return
     FROM {{ ref('stg_sales_clean') }}
     WHERE customer_id IS NOT NULL
-      AND sale_date <= DATE '2025-10-31'
+      AND sale_date <= {{ ref_date }}
 ),
 
 customer_aggregates AS (
@@ -26,41 +28,40 @@ customer_aggregates AS (
         customer_id,
 
         -- Recency
-        DATE_DIFF(DATE '2025-10-31', MAX(CASE WHEN NOT is_return THEN sale_date END), DAY)
+        {{ datediff_days('MAX(CASE WHEN NOT is_return THEN sale_date END)', ref_date) }}
             AS days_since_last_purchase,
 
         -- Purchase frequency windows (forward-looking from reference date)
-        COUNTIF(NOT is_return AND sale_date >= DATE_SUB(DATE '2025-10-31', INTERVAL 30 DAY))
+        {{ countif('NOT is_return AND sale_date >= ' ~ dateadd_days(ref_date, -30)) }}
             AS purchases_l30d,
-        COUNTIF(NOT is_return AND sale_date >= DATE_SUB(DATE '2025-10-31', INTERVAL 60 DAY))
+        {{ countif('NOT is_return AND sale_date >= ' ~ dateadd_days(ref_date, -60)) }}
             AS purchases_l60d,
-        COUNTIF(NOT is_return AND sale_date >= DATE_SUB(DATE '2025-10-31', INTERVAL 90 DAY))
+        {{ countif('NOT is_return AND sale_date >= ' ~ dateadd_days(ref_date, -90)) }}
             AS purchases_l90d,
 
         -- Spend in most recent 90 days vs the 90 days before that
         SUM(CASE
             WHEN NOT is_return
-             AND sale_date >= DATE_SUB(DATE '2025-10-31', INTERVAL 90 DAY)
+             AND sale_date >= {{ dateadd_days(ref_date, -90) }}
             THEN net_amount ELSE 0 END)
             AS spend_l90d,
         SUM(CASE
             WHEN NOT is_return
-             AND sale_date >= DATE_SUB(DATE '2025-10-31', INTERVAL 180 DAY)
-             AND sale_date <  DATE_SUB(DATE '2025-10-31', INTERVAL 90 DAY)
+             AND sale_date >= {{ dateadd_days(ref_date, -180) }}
+             AND sale_date <  {{ dateadd_days(ref_date, -90) }}
             THEN net_amount ELSE 0 END)
             AS spend_prev_90d,
 
         -- Return rate inputs
-        COUNTIF(is_return)  AS total_returns,
-        COUNT(*)            AS total_transactions,
+        {{ countif('is_return') }}  AS total_returns,
+        COUNT(*)                    AS total_transactions,
 
         -- Cadence inputs
-        COUNTIF(NOT is_return) AS purchase_count,
-        DATE_DIFF(
-            MAX(CASE WHEN NOT is_return THEN sale_date END),
-            MIN(CASE WHEN NOT is_return THEN sale_date END),
-            DAY
-        ) AS tenure_days
+        {{ countif('NOT is_return') }} AS purchase_count,
+        {{ datediff_days(
+            'MIN(CASE WHEN NOT is_return THEN sale_date END)',
+            'MAX(CASE WHEN NOT is_return THEN sale_date END)'
+        ) }} AS tenure_days
 
     FROM purchase_history
     GROUP BY customer_id
@@ -75,8 +76,8 @@ customer_derived AS (
             THEN ROUND(tenure_days / (purchase_count - 1), 1)
         END AS avg_days_between_purchases,
 
-        SAFE_DIVIDE(spend_l90d, spend_prev_90d) AS spend_trend_ratio,
-        SAFE_DIVIDE(total_returns, total_transactions) AS return_rate
+        {{ safe_divide('spend_l90d', 'spend_prev_90d') }} AS spend_trend_ratio,
+        {{ safe_divide('total_returns', 'total_transactions') }} AS return_rate
     FROM customer_aggregates
 )
 
@@ -104,7 +105,7 @@ SELECT
         ELSE FALSE
     END AS is_churned,
 
-    DATE '2025-10-31' AS as_of_date,
+    {{ ref_date }} AS as_of_date,
     CURRENT_TIMESTAMP() AS _loaded_at
 
 FROM customer_derived cd

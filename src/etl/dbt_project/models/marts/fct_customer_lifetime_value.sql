@@ -9,7 +9,7 @@ WITH customer_lifetime_value AS (
         SUM(net_amount) AS lifetime_value,
         COUNT(*) AS purchase_count,
         ROUND(SUM(net_amount) / COUNT(*), 2) AS avg_order_value,
-        DATE_DIFF(CURRENT_DATE, MAX(sale_date), DAY) AS days_since_last_purchase,
+        {{ datediff_days('MAX(sale_date)', 'CURRENT_DATE') }} AS days_since_last_purchase,
         MAX(sale_date) AS last_purchase_date
     FROM
         {{ ref('stg_sales_clean') }}

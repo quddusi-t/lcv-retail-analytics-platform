@@ -17,6 +17,7 @@ dependencies = [
     "google-auth==2.49.0",      # GCP service account authentication
     "dbt-core==1.11.8",
     "dbt-bigquery==1.11.1",
+    "dbt-snowflake==1.11.1",
     "fastapi==0.115.12",
     "uvicorn==0.32.1",
     "sqlalchemy==2.0.36",

@@ -53,7 +53,7 @@ SELECT
         ELSE is_return
     END AS is_return
 FROM
-    `{{ var('raw_dataset') }}.fact_sales`
+    {{ var('raw_dataset') }}.fact_sales
 WHERE
     -- Remove completely null transactions
     sale_id IS NOT NULL
