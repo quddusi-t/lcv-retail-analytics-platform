@@ -28,7 +28,7 @@ SELECT
     status,
     square_meters
 FROM
-    `{{ var('raw_dataset') }}.dim_store`
+    {{ var('raw_dataset') }}.dim_store
 WHERE
     -- Ensure required fields
     store_id IS NOT NULL

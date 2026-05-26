@@ -4,7 +4,7 @@ WITH regional_performance AS (
         s.region,
         s.store_name,
         p.category AS product_category,
-        DATE_TRUNC(sc.sale_date, MONTH) AS year_month,
+        {{ date_trunc_month('sc.sale_date') }} AS year_month,
         SUM(sc.net_amount) AS total_revenue,
         SUM(sc.quantity) AS total_units_sold,
         SUM(sc.margin_amount) AS total_profit,
@@ -27,7 +27,7 @@ WITH regional_performance AS (
         s.region,
         s.store_name,
         p.category,
-        DATE_TRUNC(sc.sale_date, MONTH)
+        {{ date_trunc_month('sc.sale_date') }}
 )
 -- CTE 2: CALCULATION (Window functions)
 , region_ranked AS (

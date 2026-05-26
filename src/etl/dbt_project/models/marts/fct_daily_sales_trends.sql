@@ -4,7 +4,7 @@ WITH daily_sales AS (
     SELECT
         sale_date,
         CONCAT(d.year, '-Q', d.quarter) AS year_quarter,
-        CONCAT(d.year, '-', LPAD(CAST(d.month AS STRING), 2, '0')) AS year_month,
+        CONCAT(d.year, '-', LPAD({{ cast_to_string('d.month') }}, 2, '0')) AS year_month,
         d.day_of_week,
         NOT d.is_weekend AS is_weekday,
         d.is_holiday,

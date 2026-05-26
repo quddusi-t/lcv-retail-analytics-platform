@@ -29,7 +29,7 @@ SELECT
     -- Customer status
     status
 FROM
-    `{{ var('raw_dataset') }}.dim_customer`
+    {{ var('raw_dataset') }}.dim_customer
 WHERE
     -- Ensure required fields
     customer_id IS NOT NULL

@@ -39,7 +39,7 @@ SELECT
     is_current,
     scd_start_date
 FROM
-    `{{ var('raw_dataset') }}.dim_product`
+    {{ var('raw_dataset') }}.dim_product
 WHERE
     -- Ensure required fields
     product_id IS NOT NULL
