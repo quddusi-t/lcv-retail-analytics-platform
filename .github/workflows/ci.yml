@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/etl/dbt_project/**"
+      - "src/**/*.py"
+      - "pyproject.toml"
+      - "uv.lock"
+
+jobs:
+  dbt-compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Write GCP service account key
+        env:
+          GCP_KEY_JSON: ${{ secrets.GCP_KEY_JSON }}
+        run: echo "$GCP_KEY_JSON" > /tmp/gcp-key.json
+
+      - name: Create dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml <<'EOF'
+          lcv_retail_analytics:
+            target: bigquery
+            outputs:
+              bigquery:
+                type: bigquery
+                method: service-account
+                project: lcv-retail-analytics-dw
+                keyfile: /tmp/gcp-key.json
+                schema: retail_analytics
+                timeout_seconds: 300
+                location: US
+                threads: 1
+          EOF
+
+      - name: dbt compile
+        run: dbt compile --target bigquery
+        working-directory: src/etl/dbt_project
+        env:
+          PATH: ${{ github.workspace }}/.venv/bin:$PATH
